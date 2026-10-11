@@ -221,8 +221,8 @@ export function detectSplits(now, before, pairsByCik, priceNow, priceBefore) {
  * What a book earned over the next quarter if held unchanged: each position's price move, weighted by its
  * value. Prices are the median 13F price, else the filer's own (value over shares). Moves under 0.3× or over
  * 3.5× are taken as splits or reporting errors and left out. Null when under 70% of the book is priced both
- * quarter ends. Dividends are not counted. With contributions (a Map), each priced position's share of the
- * return is set in it: idx → value-weighted price move, so the shares add up to the return.
+ * quarter ends. Dividends are not counted. With contributions (a Map), each priced position is set in it as
+ * idx → [weight, return]: its share of the priced value and its price move, so Σ weight × return is the return.
  */
 export function holdingsReturn(book, next, priceBefore, priceNow, contributions = null) {
   let priced = 0, grown = 0;
@@ -235,10 +235,10 @@ export function holdingsReturn(book, next, priceBefore, priceNow, contributions 
     const r = b / a;
     if (r < 0.3 || r > 3.5) continue;
     priced += held.value; grown += held.value * r;
-    contributions?.set(i, held.value * (r - 1));
+    contributions?.set(i, [held.value, r - 1]);
   }
   if (!(book.total > 0 && priced >= 0.7 * book.total)) return null;
-  if (contributions) for (const [i, v] of contributions) contributions.set(i, v / priced);
+  if (contributions) for (const [i, [v, move]] of contributions) contributions.set(i, [v / priced, move]);
   return grown / priced - 1;
 }
 
