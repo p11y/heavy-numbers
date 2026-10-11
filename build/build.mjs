@@ -2,7 +2,7 @@
 // Builds Heavy Numbers from SEC 13F filings. No server or database: the output is plain files for GitHub
 // Pages. Usage:
 //   SEC_USER_AGENT="Name you@example.com" node build/build.mjs [--out out] [--cache .cache] [--sets 6] [--no-live]
-// The run downloads the six newest quarterly data sets (about 100 MB each) and reads every 13F filed since
+// The run downloads the ten newest quarterly data sets (about 100 MB each) and reads every 13F filed since
 // the newest one ends straight from EDGAR. It shows the latest quarter with at least 1,000 filers, compares
 // each filer with its quarter before, keeps four quarters of history, and writes every page.
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
@@ -12,12 +12,13 @@ import { parseArgs } from 'node:util';
 import { listDataSets, fetchDataSet, fetchTickers, fillSic, readJson } from './sec.mjs';
 import { listLiveFilings, readLiveFilings } from './live.mjs';
 import { readFilings, selectReports, latestQuarter, priorQuarter, readHoldings, buildBooks, pairPositions, detectSplits, changeOf, holdingsReturn, CONCENTRATED, BIG_BET } from './model.mjs';
+import { stockBenchmarks, fundSkill, shrinkSkill, SKILL } from './skill.mjs';
 import { selectReferenceEntry } from './reference.mjs';
 import { stockSector, SECTORS } from './sectors.mjs';
 import { renderSite } from './render.mjs';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
-const { values: args } = parseArgs({ options: { out: { type: 'string', default: 'out' }, cache: { type: 'string', default: '.cache' }, sets: { type: 'string', default: '6' }, live: { type: 'boolean', default: true } }, allowNegative: true });
+const { values: args } = parseArgs({ options: { out: { type: 'string', default: 'out' }, cache: { type: 'string', default: '.cache' }, sets: { type: 'string', default: '10' }, live: { type: 'boolean', default: true } }, allowNegative: true });
 const SMALL = new Set(['of', 'and', 'the', 'for', 'in', 'on', 'at', 'de', 'du', 'la', 'le', 'by']);
 const KEEP = /^(LLC|LP|L\.P\.|LLP|PLC|NV|N\.V\.|SA|S\.A\.|AG|SE|ETF|REIT|USA|US|II|III|IV|AB|ASA|ADR|AI|NYSE|SPDR|IBM|AT&T|UBS|BNY)$/i;
 const log = (...parts) => console.log(new Date().toISOString().slice(11, 19), ...parts);
@@ -31,8 +32,8 @@ const live = args.live ? await readLiveFilings(await listLiveFilings(sets[0].end
 for (const { filing } of live) filings.set(filing.accession, filing);
 const reports = selectReports(filings);
 const period = latestQuarter(reports);
-const periods = [period]; // newest first: the quarter shown, then four before it
-while (periods.length < 5) periods.push(priorQuarter(periods.at(-1)));
+const periods = [period]; // newest first: the quarter shown, then the quarters skill is measured over
+while (periods.length < 1 + SKILL.quarters) periods.push(priorQuarter(periods.at(-1)));
 const [, prior] = periods;
 const reportsOf = p => reports.get(p) ?? new Map();
 // A quarter still being filed: under 90% of the quarter before's filers so far.
@@ -79,7 +80,9 @@ const books = new Map(), prices = new Map(), successorOf = new Map();
 const SPY = securities.findIndex(s => s.cusip === '78462F103');
 const quarterReturns = new Map(), benchmark = new Map(); // cik → Map period → return; period → return
 // What each position added to that return, for books of up to 150 positions (the concentrated range).
-const quarterContributions = new Map(); // cik → Map period → Map idx → share of the return
+const quarterContributions = new Map(); // cik → Map period → Map idx → [weight, price move]
+// Every stock's price move each quarter, with the value 13F filers held in it at the start (its size).
+const stockMoves = new Map(); // period → Map idx → { move, size }
 // When each of those books first showed a position, and at what price: the earliest quarter in the data means
 // "held at least since then".
 const firstSeen = new Map(); // cik → Map idx → { period, price }
@@ -123,6 +126,14 @@ for (const p of [...periods].reverse()) {
       const r = holdingsReturn(book, built.books.get(cik), priceBefore, built.price, parts);
       if (r != null) { remember(quarterReturns, cik, p, r); if (parts) remember(quarterContributions, cik, p, parts); }
     }
+    const moves = new Map();
+    for (const book of before.values()) for (const [i, held] of book.positions) {
+      const a = priceBefore.get(i), b = built.price.get(i);
+      if (!a || !b || b / a < 0.3 || b / a > 3.5 || !isStock(securities[i])) continue;
+      const m = moves.get(i);
+      if (m) m.size += held.value; else moves.set(i, { move: b / a - 1, size: held.value });
+    }
+    stockMoves.set(p, moves);
     if (priceBefore.has(SPY) && built.price.has(SPY)) benchmark.set(p, built.price.get(SPY) / priceBefore.get(SPY) - 1);
   }
   if (periods.indexOf(p) < 4) { // history: the four newest quarters
@@ -169,7 +180,7 @@ function contributorsOf(cik) {
   const total = new Map();
   let growth = 1;
   for (const q of periods.slice(0, 4).reverse()) {
-    for (const [i, share] of quarterContributions.get(cik)?.get(q) ?? []) total.set(i, (total.get(i) ?? 0) + growth * share);
+    for (const [i, [weight, move]] of quarterContributions.get(cik)?.get(q) ?? []) total.set(i, (total.get(i) ?? 0) + growth * weight * move);
     growth *= 1 + (quarterReturns.get(cik)?.get(q) ?? 0);
   }
   const seen = firstSeen.get(cik), now = prices.get(period);
@@ -289,10 +300,22 @@ for (const fund of current) {
 for (const stock of byTicker.values()) if (stock.concentratedHolders) sectorOf.get(stock.sector).stocks.push(stock);
 for (const s of sectors) s.stocks.sort((a, b) => b.concentratedHolders - a.concentratedHolders || b.value - a.value);
 
+// Skill: each fund's quarterly return over stocks of the same sector and size, averaged and shrunk for luck.
+const marks = stockBenchmarks(stockMoves, i => stocks.get(i)?.sector ?? 'other');
+const skills = new Map();
+for (const fund of funds) {
+  const parts = quarterContributions.get(fund.cik);
+  if (parts) { const skill = fundSkill(parts, marks, periods.slice(0, SKILL.quarters)); if (skill) skills.set(fund.cik, skill); }
+}
+const pool = funds.filter(f => f.concentrated && skills.has(f.cik)).map(f => skills.get(f.cik));
+const luck = shrinkSkill(pool);
+for (const fund of funds) fund.skill = skills.get(fund.cik) ?? null;
+log(`skill: ${pool.length} concentrated funds measured, ${luck.significant} beat their benchmark at t ≥ 2`);
+
 // 6. Pages
 rmSync(args.out, { recursive: true, force: true });
 mkdirSync(args.out, { recursive: true });
-const summary = renderSite({ out: args.out, period, prior, partial, priorFilers: reportsOf(prior).size, funds, stocks: [...byTicker.values()], sectors, securities, builtAt: new Date().toISOString(), dataSets: sets.map(s => s.file), benchmark: periods.slice(0, 4).map(q => benchmark.get(q) ?? null) });
+const summary = renderSite({ out: args.out, period, prior, partial, priorFilers: reportsOf(prior).size, funds, stocks: [...byTicker.values()], sectors, securities, builtAt: new Date().toISOString(), dataSets: sets.map(s => s.file), benchmark: periods.slice(0, 4).map(q => benchmark.get(q) ?? null), firstPeriod: periods.at(-1), luck });
 log(`wrote ${summary.pages} pages, ${(summary.bytes / 2 ** 20).toFixed(0)} MB, to ${args.out}`);
 
 // --- helpers

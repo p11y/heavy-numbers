@@ -3,6 +3,7 @@ import { copyFileSync, cpSync, mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { quarterLabel, priorQuarter } from './model.mjs';
+import { SKILL } from './skill.mjs';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 // Pages reports http:// until its certificate is issued; the site is always served over HTTPS after that.
@@ -15,7 +16,7 @@ const REPO = 'https://github.com/p11y/heavy-numbers';
 // The chart's colors: site.css's --ink, --text-primary, --text-body, --text-tertiary and --data-1.
 const COLORS = { ink: [17, 17, 17], textPrimary: [243, 240, 233], textBody: [217, 213, 207], textTertiary: [140, 137, 130], data1: [217, 213, 207] };
 const rgba = (token, alpha = 1) => `rgba(${COLORS[token].join(', ')}, ${alpha})`;
-const RANK_ROWS = 200, BROAD_ROWS = 100, BROAD = { minPositions: 10, maxShare: 0.5 }, FUND_ROWS = 150, GROUP_ROWS = 10, STOCK_ROWS = 200, SOLD_ROWS = 50, INDEX_ROWS = 500, SECTOR_ROWS = 50;
+const RANK_ROWS = 200, SKILL_ROWS = 100, BROAD_ROWS = 100, BROAD = { minPositions: 10, maxShare: 0.5 }, FUND_ROWS = 150, GROUP_ROWS = 10, STOCK_ROWS = 200, SOLD_ROWS = 50, INDEX_ROWS = 500, SECTOR_ROWS = 50;
 
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const money = v => {
@@ -43,7 +44,7 @@ function change(h) {
   return `<span class="hf-badge ${cls}">${label}${amount}</span>`;
 }
 
-export function renderSite({ out, period, prior, partial, priorFilers, funds, stocks, sectors, securities, builtAt, dataSets, benchmark = [] }) {
+export function renderSite({ out, period, prior, partial, priorFilers, funds, stocks, sectors, securities, builtAt, dataSets, benchmark = [], firstPeriod = null, luck = null }) {
   let pages = 0, bytes = 0;
   const write = (rel, html) => {
     const file = path.join(out, rel);
@@ -106,7 +107,7 @@ export function renderSite({ out, period, prior, partial, priorFilers, funds, st
   /** What drove a fund's twelve-month return: its five biggest contributors and its three biggest drags. */
   // When a fund first reported a stock, at the 13F price that quarter, and the price now. The data's first
   // quarter can only say "by then".
-  const oldest = priorQuarter(priorQuarter(priorQuarter(priorQuarter(period))));
+  const oldest = firstPeriod;
   const price = v => v == null ? '—' : `$${v >= 100 ? int(v) : v.toFixed(2)}`;
   const entry = c => !c.first ? '' : `${c.first.period === oldest ? `Held by ${quarterLabel(oldest)}` : `First reported ${quarterLabel(c.first.period)}`} at ${price(c.first.price)}${c.price != null ? `, ${price(c.price)} at ${quarterLabel(period)}` : ''}`;
   const contributorsSection = f => {
@@ -222,14 +223,21 @@ export function renderSite({ out, period, prior, partial, priorFilers, funds, st
   const rankRow = (f, n) => `<tr><td class="hf-numeric hf-muted">${n + 1}</td><th><a class="hf-name" href="${fundHref(f)}">${esc(f.name)}</a><span class="hf-subtext">${esc(f.city)} · ${int(f.holdings.length)} positions · ${money(f.total)}</span></th>
     <td class="hf-numeric">${signed(f.yearReturn)}%</td><td class="hf-numeric">${spyYear == null ? '—' : `${signed(f.yearReturn - spyYear)} pts`}</td>
     ${[...f.returns].reverse().map(r => `<td class="hf-numeric hf-optional">${r == null ? '—' : `${signed(r, 0)}%`}</td>`).join('')}<td>${topContributor(f)}</td></tr>`;
+  // Skill: concentrated funds by their shrunk excess return, at least four quarters measured.
+  const skilled = funds.filter(f => f.concentrated && f.skill?.shrunk != null).sort((a, b) => b.skill.shrunk - a.skill.shrunk);
+  const perYear = v => `${signed(4 * v)}%`;
+  const skillColumns = [['#', 1], ['Fund'], ['Skill, per year', 1], ['Raw, per year', 1], ['Quarters ahead', 1], ['Confidence (t)', 1, 1], ['Biggest contributor, 12 months', 0, 1]];
+  const skillRow = (f, n) => `<tr><td class="hf-numeric hf-muted">${n + 1}</td><th><a class="hf-name" href="${fundHref(f)}">${esc(f.name)}</a><span class="hf-subtext">${esc(f.city)} · ${int(f.holdings.length)} positions · ${money(f.total)}</span></th>
+    <td class="hf-numeric">${perYear(f.skill.shrunk)}</td><td class="hf-numeric">${perYear(f.skill.mean)}</td><td class="hf-numeric">${f.skill.won} of ${f.skill.quarters}</td><td class="hf-numeric hf-optional">${f.skill.t.toFixed(1)}</td><td class="hf-optional">${topContributor(f)}</td></tr>`;
   const rankColumns = [['#', 1], ['Fund'], ['12 months', 1], ['vs S&P 500', 1], ...quarters.map(q => [q, 1, 1]), ['Biggest contributor']];
   write('rankings/index.html', layout({ title: 'Fund rankings', path: '/rankings/', current: '/rankings/', description: `Concentrated funds ranked by what their reported holdings earned over the last 12 months, against the S&P 500.`, body: `
     ${head(`Rankings · ${quarters[0]} to ${quarters.at(-1)}`, 'Fund rankings', date(period), `${int(ranked.length)} concentrated funds with four quarters of holdings`)}
-    ${stats([['S&P 500 (SPY), 12 months', spyYear == null ? '—' : `${signed(spyYear)}%`], ['Funds that beat it', beat == null ? '—' : `${int(beat)} <small class="hf-muted">of ${int(ranked.length)}</small>`], ['Median fund', ranked.length ? `${signed(ranked[ranked.length >> 1].yearReturn)}%` : '—']])}
+    ${stats([['S&P 500 (SPY), 12 months', spyYear == null ? '—' : `${signed(spyYear)}%`], ['Funds that beat it', beat == null ? '—' : `${int(beat)} <small class="hf-muted">of ${int(ranked.length)}</small>`], luck?.measured ? ['Records that beat luck', `${int(luck.significant)} <small class="hf-muted">luck alone: about ${int(luck.expected)} of ${int(luck.measured)}</small>`] : ['Median fund', ranked.length ? `${signed(ranked[ranked.length >> 1].yearReturn)}%` : '—']])}
+    ${skilled.length ? section('Most skilled, after luck', `Return over stocks of the same sector and size, per year, over up to ${SKILL.quarters} quarters, pulled toward zero by how noisy each record is`, table(skillColumns, skilled.slice(0, SKILL_ROWS).map(skillRow), 25), 'skill') : ''}
     ${section('Broad winners', `Best 12 months among funds with ${BROAD.minPositions}+ positions where no one stock made more than half the return`, table(rankColumns, broad.slice(0, BROAD_ROWS).map(rankRow), 50), 'broad')}
     ${section('All funds', 'Best 12 months, including funds that won on one stock', table(rankColumns, ranked.slice(0, RANK_ROWS).map(rankRow), 25), 'best')}
     ${section('Worst 12 months', 'The same funds, from the bottom', table(rankColumns, ranked.slice(-25).reverse().map((f, n) => rankRow(f, ranked.length - 1 - n)), 10), 'worst')}
-    <p class="hf-caption">A fund's return here is what its reported stock positions earned if it held each quarter-end portfolio unchanged until the next quarter end, at the median price all 13F filers reported, without dividends, fees or trading in between. It ranks the portfolios funds disclosed, not the returns their investors got. The biggest contributor is the stock that added the most points to that return, with the quarter the fund first reported it and the 13F price then. Broad winners leaves out funds with fewer than ${BROAD.minPositions} positions or one stock behind more than half the return, since a single bet that paid off says little about a manager. Funds need four quarters of holdings priced at least 70% by value. When we tested it over 2024 to 2025, a fund's rank one year did not predict its rank the next (rank correlation −0.016), so a high rank is a record, not a forecast. <a class="hf-inline-link" href="/methodology/#rankings">How this works</a>.</p>` }));
+    <p class="hf-caption">A fund's return here is what its reported stock positions earned if it held each quarter-end portfolio unchanged until the next quarter end, at the median price all 13F filers reported, without dividends, fees or trading in between. It ranks the portfolios funds disclosed, not the returns their investors got. "Skill" is the luck-adjusted return over stocks of the same sector and size, per year; "Quarters ahead" counts the quarters the fund beat that benchmark. The biggest contributor is the stock that added the most points to that return, with the quarter the fund first reported it and the 13F price then. Broad winners leaves out funds with fewer than ${BROAD.minPositions} positions or one stock behind more than half the return, since a single bet that paid off says little about a manager. Funds need four quarters of holdings priced at least 70% by value. When we tested it over 2024 to 2025, a fund's rank one year did not predict its rank the next (rank correlation −0.016), so a high rank is a record, not a forecast. <a class="hf-inline-link" href="/methodology/#rankings">How this works</a>.</p>` }));
 
   // About
   write('methodology/index.html', layout({ title: 'How this works', path: '/methodology/', current: '/methodology/', description: 'Where the numbers come from and what they leave out.', body: `
@@ -249,6 +257,7 @@ export function renderSite({ out, period, prior, partial, priorFilers, funds, st
     <p>CUSIPs are matched to tickers through <a class="hf-inline-link" href="https://www.openfigi.com/">OpenFIGI</a>. Sectors come from each company's SEC industry code, with a short reviewed list of companies the code files somewhere a reader would not look.</p>
     <h2 id="rankings">Fund rankings</h2>
     <p><a class="hf-inline-link" href="/rankings/">Rankings</a> score each concentrated fund by what its reported positions earned over the last four quarters: each quarter, the fund's holdings at the quarter end before, held unchanged to the next quarter end, at the median price all 13F filers reported. Price moves beyond 0.3× or 3.5× in a quarter are taken as splits or reporting errors and left out, and a quarter counts only when at least 70% of the fund's value is priced at both ends. Dividends, fees and trades between quarter ends are not seen. The S&amp;P 500 line is SPY's 13F price over the same quarters.</p>
+    <p><strong>Most skilled, after luck</strong> measures each quarter's return over a benchmark of stocks like the ones the fund held: the average move of stocks in the same sector and the same third by size (the value 13F filers held in them). It averages up to ${SKILL.quarters} quarters (at least ${SKILL.minQuarters}) and then pulls each fund's average toward zero by how noisy it is: a record built on a few volatile quarters keeps little of its average, a steady one keeps most. "Records that beat luck" counts funds whose average is at least ${SKILL.t} standard errors above zero; with no skill at all, about 2.3% of funds would get there by chance. The method follows Daniel, Grinblatt, Titman and Wermers (1997), without their value and momentum matches, and the luck studies of Fama and French (2010) and Barras, Scaillet and Wermers (2010).</p>
     <h2>Did following these funds work?</h2>
     <p>No. We tested lists like Discover's (most opened, 3%+ new bets, breadth, buying into weakness) from 2024 to 2025 against the S&amp;P 500 and against a random stock the same funds held. None beat the random stock by more than noise, and ranking funds by one year's results predicted nothing about the next (rank correlation −0.016). Quarterly 13F holdings arrive about 45 days late, and by then the market has read them too. Use this site to see who owns what, not to pick stocks.</p>
     <h2>Open source</h2>
