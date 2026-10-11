@@ -1,0 +1,20 @@
+{
+  "version": "2026-10-03.1",
+  "rule": "A filer's 13F holdings moved to another filer (CIKs without leading zeros) from the first quarter the new filer reports them (`from`). Evidence is either the old filer's Form 13F-NT for that quarter naming the new filer as the manager reporting its holdings, or one Form ADV firm (CRD) matched to both filers by cover CRD or CIK (not by name), with the old filer's last 13F-HR for the quarter before `from` and the new filer's first for `from`. Never merged on name similarity. `includesOwn`: the new filer already filed its own, smaller 13F before `from`, and its report now covers both books.",
+  "pairs": [
+    { "from": "2026-06-30", "old": { "cik": "1336528", "name": "Pershing Square Capital Management, L.P." }, "new": { "cik": "2026053", "name": "Pershing Square Inc." }, "includesOwn": true,
+      "evidence": { "kind": "13F-NT", "accession": "0001172661-26-003777", "url": "https://www.sec.gov/Archives/edgar/data/1336528/000117266126003777/0001172661-26-003777-index.htm", "note": "13F-NT for 2026-06-30 names Pershing Square Inc. (CIK 0002026053, 028-25746) as the other manager: 'Holdings of this reporting manager are now included in the report of its public parent company.'" } },
+    { "from": "2025-03-31", "old": { "cik": "872573", "name": "Caxton Associates LP" }, "new": { "cik": "2051323", "name": "Caxton Associates LLP" }, "includesOwn": false,
+      "evidence": { "kind": "adv-crd", "crd": "132823", "note": "Form ADV CRD 132823 matched to both filers (by CIK and by cover CRD); last 13F-HR of the old filer for 2024-12-31, first of the new for 2025-03-31." } },
+    { "from": "2025-09-30", "old": { "cik": "1282197", "name": "Black Diamond Capital Management, L.L.C." }, "new": { "cik": "2084285", "name": "Black Diamond Capital Management I, LLLP" }, "includesOwn": false,
+      "evidence": { "kind": "adv-crd", "crd": "154495", "note": "Form ADV CRD 154495 matched to both filers (by CIK and by cover CRD); last 13F-HR of the old filer for 2025-06-30, first of the new for 2025-09-30." } },
+    { "from": "2025-09-30", "old": { "cik": "1444874", "name": "Teton Advisors, Inc." }, "new": { "cik": "2086025", "name": "Teton Advisors, LLC" }, "includesOwn": false,
+      "evidence": { "kind": "adv-crd", "crd": "105963", "note": "Form ADV CRD 105963 matched to both filers (by CIK and by cover CRD); last 13F-HR of the old filer for 2025-06-30, first of the new for 2025-09-30." } },
+    { "from": "2025-06-30", "old": { "cik": "2022204", "name": "Parvus Asset Management Europe Ltd" }, "new": { "cik": "2061470", "name": "Parvus Asset Management Jersey Ltd" }, "includesOwn": false,
+      "evidence": { "kind": "adv-crd", "crd": "174027", "note": "Form ADV CRD 174027 matched to both filers (by CIK and by cover CRD); last 13F-HR of the old filer for 2025-03-31, first of the new for 2025-06-30." } },
+    { "from": "2026-03-31", "old": { "cik": "1837496", "name": "Militia Capital Partners, LP" }, "new": { "cik": "2130487", "name": "Militia Capital Management LLC" }, "includesOwn": false,
+      "evidence": { "kind": "adv-crd", "crd": "335763", "note": "Form ADV CRD 335763 matched to both filers by cover CRD; last 13F-HR of the old filer for 2025-12-31, first of the new for 2026-03-31." } },
+    { "from": "2026-06-30", "old": { "cik": "2109050", "name": "Trask Adam Roland" }, "new": { "cik": "2136877", "name": "Burnham & Co LLC" }, "includesOwn": false,
+      "evidence": { "kind": "adv-crd", "crd": "319339", "note": "Form ADV CRD 319339 matched to both filers by cover CRD; the old filer's only 13F-HR is for 2026-03-31, the new filer's first for 2026-06-30." } }
+  ]
+}

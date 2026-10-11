@@ -1,0 +1,10 @@
+{
+  "name": "heavy-numbers",
+  "private": true,
+  "license": "MIT",
+  "description": "What investment funds hold, from SEC Form 13F filings. A static site for GitHub Pages.",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "build": "node --max-old-space-size=8192 build/build.mjs"
+  }
+}

@@ -1,0 +1,70 @@
+# Rebuilds the site every day from SEC's quarterly 13F data sets and the 13F filings made since, and
+# publishes it to GitHub Pages. Needs a repository secret SEC_USER_AGENT ("Name you@example.com");
+# OPENFIGI_API_KEY is optional and speeds up ticker lookups.
+name: Site
+
+on:
+  schedule:
+    - cron: '0 12 * * *' # daily, after EDGAR's nightly index has the day before's filings
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: site
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      # Ticker and industry-code lookups from earlier runs, so each run asks only for new ones.
+      - uses: actions/cache@v4
+        with:
+          path: data/cache
+          key: lookups-${{ github.run_id }}
+          restore-keys: lookups-
+      # Filings already read from EDGAR, so each run reads only the day's new ones.
+      - uses: actions/cache@v4
+        with:
+          path: .cache/live
+          key: live-filings-${{ github.run_id }}
+          restore-keys: live-filings-
+      # SEC's data set zips change once a quarter; saved once a month.
+      - id: month
+        run: echo "month=$(date -u +%Y-%m)" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v4
+        with:
+          path: .cache/sec/*.zip
+          key: sec-data-sets-${{ steps.month.outputs.month }}
+          restore-keys: sec-data-sets-
+      # The Pages address: base_path is '/<repo>' on <user>.github.io and '' on a custom domain.
+      - id: pages
+        uses: actions/configure-pages@v5
+      - run: npm run build
+        env:
+          SITE_URL: ${{ steps.pages.outputs.base_url }}
+          BASE_PATH: ${{ steps.pages.outputs.base_path }}
+          SEC_USER_AGENT: ${{ secrets.SEC_USER_AGENT }}
+          OPENFIGI_API_KEY: ${{ secrets.OPENFIGI_API_KEY }}
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: out
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
