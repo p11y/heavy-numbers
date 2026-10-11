@@ -9,9 +9,10 @@ import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
-import { listDataSets, fetchDataSet, fetchTickers, fillSic, readJson } from './sec.mjs';
+import { listDataSets, fetchDataSet, fetchTickers, fillSic, fetchCompanyFacts, readJson } from './sec.mjs';
+import { buildBoard } from './bottlenecks.mjs';
 import { listLiveFilings, readLiveFilings } from './live.mjs';
-import { readFilings, selectReports, latestQuarter, priorQuarter, readHoldings, buildBooks, pairPositions, detectSplits, changeOf, CONCENTRATED, BIG_BET } from './model.mjs';
+import { readFilings, selectReports, latestQuarter, priorQuarter, readHoldings, buildBooks, pairPositions, detectSplits, changeOf, holdingsReturn, CONCENTRATED, BIG_BET } from './model.mjs';
 import { selectReferenceEntry } from './reference.mjs';
 import { stockSector, SECTORS } from './sectors.mjs';
 import { renderSite } from './render.mjs';
@@ -74,6 +75,10 @@ const isConcentrated = book => {
 // tables; the newest three are kept whole for the pages.
 const continuity = readJson(path.join(root, '..', 'data', 'manager-continuity.json'), { pairs: [] }).pairs;
 const books = new Map(), prices = new Map(), successorOf = new Map();
+// Each filer's return per quarter from holding its book at the quarter before unchanged, and the S&P 500's
+// (SPY's price) for the same quarters.
+const SPY = securities.findIndex(s => s.cusip === '78462F103');
+const quarterReturns = new Map(), benchmark = new Map(); // cik → Map period → return; period → return
 const fundHistory = new Map(), stockHistory = new Map(); // cik | idx → Map period → summary
 const remember = (map, key, p, value) => { if (!map.has(key)) map.set(key, new Map()); map.get(key).set(p, value); };
 for (const p of [...periods].reverse()) {
@@ -100,6 +105,14 @@ for (const p of [...periods].reverse()) {
         remember(fundHistory, newCik, q, mine ? { value: h.value + mine.value, positions: h.positions + mine.positions, opened: null, sold: null } : h);
       }
     }
+  }
+  if (before) {
+    const priceBefore = prices.get(priorQuarter(p));
+    for (const [cik, book] of before) {
+      const r = holdingsReturn(book, built.books.get(cik), priceBefore, built.price);
+      if (r != null) remember(quarterReturns, cik, p, r);
+    }
+    if (priceBefore.has(SPY) && built.price.has(SPY)) benchmark.set(p, built.price.get(SPY) / priceBefore.get(SPY) - 1);
   }
   if (periods.indexOf(p) < 4) { // history: the four newest quarters
     for (const [cik, book] of built.books) {
@@ -155,7 +168,8 @@ const latest = [...books.get(period).keys()].map(cik => [cik, period]);
 if (partial) for (const cik of books.get(prior).keys()) if (!books.get(period).has(cik)) latest.push([cik, prior]);
 for (const [cik, p] of latest) {
   const { book, prev, pairs, holdings, sold, hasPrior } = compareBooks(cik, p);
-  funds.push({ cik, period: p, current: p === period, pairs, predecessor: successorOf.get(`${p}|${cik}`) ?? null, name: titleCase(book.report.name), city: book.report.city, report: book.report, total: book.total, priorTotal: prev?.total ?? null, unitFixed: book.unitFixed, holdings, sold, concentrated: isConcentrated(book), hasPrior, history: periods.slice(0, 4).map(q => [q, fundHistory.get(cik)?.get(q) ?? null]) });
+  const returns = periods.slice(0, 4).map(q => quarterReturns.get(cik)?.get(q) ?? null);
+  funds.push({ cik, period: p, current: p === period, returns, yearReturn: returns.every(r => r != null) ? returns.reduce((n, r) => n * (1 + r), 1) - 1 : null, pairs, predecessor: successorOf.get(`${p}|${cik}`) ?? null, name: titleCase(book.report.name), city: book.report.city, report: book.report, total: book.total, priorTotal: prev?.total ?? null, unitFixed: book.unitFixed, holdings, sold, concentrated: isConcentrated(book), hasPrior, history: periods.slice(0, 4).map((q, n) => [q, fundHistory.get(cik)?.get(q) ? { ...fundHistory.get(cik).get(q), ret: returns[n] } : null]) });
 }
 // Addresses: a reviewed filer keeps its readable id; others go by name, with the CIK when names collide.
 const bySlug = new Map();
@@ -248,10 +262,14 @@ for (const fund of current) {
 for (const stock of byTicker.values()) if (stock.concentratedHolders) sectorOf.get(stock.sector).stocks.push(stock);
 for (const s of sectors) s.stocks.sort((a, b) => b.concentratedHolders - a.concentratedHolders || b.value - a.value);
 
+// Bottleneck board: backlog and sales from each listed company's XBRL facts.
+const board = await buildBoard({ tickers, getFacts: fetchCompanyFacts });
+log(`bottleneck board: ${board.layers.reduce((n, l) => n + l.rows.length, 0)} companies`);
+
 // 6. Pages
 rmSync(args.out, { recursive: true, force: true });
 mkdirSync(args.out, { recursive: true });
-const summary = renderSite({ out: args.out, period, prior, partial, priorFilers: reportsOf(prior).size, funds, stocks: [...byTicker.values()], sectors, securities, builtAt: new Date().toISOString(), dataSets: sets.map(s => s.file) });
+const summary = renderSite({ out: args.out, period, prior, partial, priorFilers: reportsOf(prior).size, funds, stocks: [...byTicker.values()], sectors, securities, builtAt: new Date().toISOString(), dataSets: sets.map(s => s.file), board, benchmark: periods.slice(0, 4).map(q => benchmark.get(q) ?? null) });
 log(`wrote ${summary.pages} pages, ${(summary.bytes / 2 ** 20).toFixed(0)} MB, to ${args.out}`);
 
 // --- helpers
