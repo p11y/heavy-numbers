@@ -15,7 +15,7 @@ const REPO = 'https://github.com/p11y/heavy-numbers';
 // The chart's colors: site.css's --ink, --text-primary, --text-body, --text-tertiary and --data-1.
 const COLORS = { ink: [17, 17, 17], textPrimary: [243, 240, 233], textBody: [217, 213, 207], textTertiary: [140, 137, 130], data1: [217, 213, 207] };
 const rgba = (token, alpha = 1) => `rgba(${COLORS[token].join(', ')}, ${alpha})`;
-const FUND_ROWS = 150, STOCK_ROWS = 200, SOLD_ROWS = 50, INDEX_ROWS = 500, SECTOR_ROWS = 50;
+const FUND_ROWS = 150, GROUP_ROWS = 10, STOCK_ROWS = 200, SOLD_ROWS = 50, INDEX_ROWS = 500, SECTOR_ROWS = 50;
 
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const money = v => {
@@ -52,15 +52,15 @@ export function renderSite({ out, period, prior, partial, priorFilers, funds, st
   const fundHref = f => `/funds/${f.slug}/`;
   const stockOf = new Map(stocks.map(s => [s.i, s]));
   const tv = s => s?.tv ? ` data-tv="${esc(s.tv)}"` : '';
-  const stockCell = i => {
+  const stockCell = (i, sub = true) => {
     const s = securities[i], page = stockOf.get(i);
     const tag = s.ticker ? `<span class="hf-ticker">${esc(s.ticker)}</span>` : '';
     const name = page ? `<a class="hf-name" href="/stocks/${page.slug}/">${esc(s.label)}</a>` : `<span class="hf-name">${esc(s.label)}</span>`;
-    return `${tag}${name}<span class="hf-subtext">${esc(s.title || s.kind || '')}</span>`;
+    return `${tag}${name}${sub ? `<span class="hf-subtext">${esc(s.title || s.kind || '')}</span>` : ''}`;
   };
   const stockLink = s => `<span class="hf-ticker">${esc(s.security.ticker)}</span><a class="hf-name" href="/stocks/${s.slug}/">${esc(s.security.label)}</a>`;
   const sectorName = new Map(sectors.map(s => [s.key, s.name]));
-  const holdingRow = (h, n) => `<tr${tv(stockOf.get(h.i))}${n == null ? '' : ` data-n="${n}"`}><th>${stockCell(h.i)}</th><td class="hf-numeric">${pct(h.weight)}</td><td class="hf-numeric">${money(h.value)}</td><td class="hf-numeric hf-optional">${int(h.shares)}</td><td>${change(h)}</td></tr>`;
+  const holdingRow = (h, n) => `<tr${tv(stockOf.get(h.i))}${n == null ? '' : ` data-n="${n}"`}><th>${stockCell(h.i, n == null)}</th><td class="hf-numeric">${pct(h.weight)}</td><td class="hf-numeric">${money(h.value)}</td><td class="hf-numeric hf-optional">${int(h.shares)}</td><td>${change(h)}</td></tr>`;
   /** A holding's group on a fund page: its stock's sector, funds and ETFs together, else Other. */
   const groupOf = h => {
     const s = stockOf.get(h.i);
@@ -79,10 +79,11 @@ export function renderSite({ out, period, prior, partial, priorFilers, funds, st
       g.weight += h.weight; g.count++;
       if (h.change === 'new') g.opened++;
     }
-    for (const h of shown) groups.get(groupOf(h)[0]).rows.push(h);
-    const rank = new Map(shown.map((h, n) => [h, n]));
+    // Each sector lists the fund's FUND_ROWS largest holdings in it, and at least its GROUP_ROWS largest.
+    f.holdings.forEach((h, n) => { const g = groups.get(groupOf(h)[0]); if (n < FUND_ROWS || g.rows.length < GROUP_ROWS) g.rows.push(h); });
+    const rank = new Map(f.holdings.map((h, n) => [h, n]));
     const note = `Share positions at ${date(f.period)}`;
-    if (groups.size < 2) return section('Holdings', note, table(columns, shown.map(holdingRow)), 'holdings');
+    if (groups.size < 2) return section('Holdings', note, table(columns, shown.map(h => holdingRow(h)), 25), 'holdings');
     const sorted = [...groups.values()].sort((a, b) => (a.key === 'other') - (b.key === 'other') || b.weight - a.weight);
     const most = Math.max(...sorted.map(g => g.weight));
     const strip = `<div class="hn-strip" aria-hidden="true">${sorted.map((g, n) => `<a href="#in-${g.key}" style="flex:${g.weight.toFixed(4)}" class="hn-seg${n % 2}" title="${esc(g.name)} ${pct(g.weight)}"></a>`).join('')}</div>`;
@@ -92,9 +93,9 @@ export function renderSite({ out, period, prior, partial, priorFilers, funds, st
       <span class="hn-gpct"><span class="hn-bar" style="width:${Math.max(2, Math.round(80 * g.weight / most))}px"></span>${pct(g.weight)}</span>
       <span class="hn-gcount">${int(g.count)} ${g.count === 1 ? 'position' : 'positions'}${g.opened && f.hasPrior ? ` · ${int(g.opened)} new` : ''}</span>
       <span class="hn-gtop">${tickers(g)}</span></summary>
-      ${g.rows.length ? table(columns, g.rows.map(h => holdingRow(h, rank.get(h)))) : ''}${g.count > g.rows.length ? `<p class="hn-gmore">${int(g.count - g.rows.length)} smaller ${g.count - g.rows.length === 1 ? 'position' : 'positions'} not shown.</p>` : ''}</details>`).join('');
+      ${g.rows.length ? table(columns, g.rows.map(h => holdingRow(h, rank.get(h))), 10) : ''}${g.count > g.rows.length ? `<p class="hn-gmore">${int(g.count - g.rows.length)} smaller ${g.count - g.rows.length === 1 ? 'position' : 'positions'} not shown.</p>` : ''}</details>`).join('');
     // holdings.js builds the largest-first table from these rows, so the page carries each row once.
-    return `<section id="holdings" class="hn-views"><div class="hf-tabletop"><h2>Holdings</h2><div class="hn-switch" hidden><button type="button" aria-pressed="true" data-view="sector">By sector</button><button type="button" aria-pressed="false" data-view="size">Largest first</button></div></div>
+    return `<section id="holdings" class="hn-views" data-rows="${FUND_ROWS}"><div class="hf-tabletop"><h2>Holdings</h2><div class="hn-switch" hidden><button type="button" aria-pressed="true" data-view="sector">By sector</button><button type="button" aria-pressed="false" data-view="size">Largest first</button></div></div>
       <div class="hn-bysector">${strip}${bySector}</div><div class="hn-flat" hidden></div></section>`;
   };
   const cur = funds.filter(f => f.current);
@@ -106,7 +107,7 @@ export function renderSite({ out, period, prior, partial, priorFilers, funds, st
   // Discover
   const top = (key, n) => stocks.filter(s => s[key] > 0 && !s.firstQuarter).sort((a, b) => b[key] - a[key] || b.concentratedHolders - a.concentratedHolders || b.value - a.value).slice(0, n);
   const listTable = (rows, first, cells) => table([['Stock'], [first, 1], ['Held by concentrated funds', 1], ['Value held by all filers', 1, 1], ['Sector', 0, 1]],
-    rows.map(s => `<tr${tv(s)}><th>${stockLink(s)}</th>${cells(s)}<td class="hf-numeric">${int(s.concentratedHolders)}</td><td class="hf-numeric hf-optional">${money(s.value)}</td><td class="hf-optional"><a class="hf-muted" href="/sectors/${s.sector}/">${esc(sectorName.get(s.sector))}</a></td></tr>`));
+    rows.map(s => `<tr${tv(s)}><th>${stockLink(s)}</th>${cells(s)}<td class="hf-numeric">${int(s.concentratedHolders)}</td><td class="hf-numeric hf-optional">${money(s.value)}</td><td class="hf-optional"><a class="hf-muted" href="/sectors/${s.sector}/">${esc(sectorName.get(s.sector))}</a></td></tr>`), 10);
   const opens = concentratedWithPrior.reduce((n, f) => n + f.holdings.filter(h => h.change === 'new').length, 0);
   const sectorRows = sectors.filter(s => s.key !== 'other' || s.now).map(s => {
     const totalNow = sectors.reduce((n, x) => n + x.now, 0), totalBefore = sectors.reduce((n, x) => n + x.before, 0);
@@ -129,7 +130,7 @@ export function renderSite({ out, period, prior, partial, priorFilers, funds, st
   write('funds/index.html', layout({ title: 'Funds', path: '/funds/', current: '/funds/', description: `Every 13F filer's latest holdings, largest first.`, body: `
     ${head(`13F filers · ${Q}`, 'Funds', date(period), partial ? `${int(cur.length)} filers have filed ${Q} so far; the rest show ${P}. Search finds any of them.` : `${int(funds.length)} filers. Search finds any of them.`)}
     ${section(`The ${INDEX_ROWS} largest`, 'By reported value', table([['Fund'], ['Reported value', 1], ['Positions', 1], ['Filed', 1, 1]],
-      funds.slice(0, INDEX_ROWS).map(f => `<tr><th><a class="hf-name" href="${fundHref(f)}">${esc(f.name)}</a><span class="hf-subtext">${esc(f.city)}${f.concentrated ? ' · concentrated' : ''}${f.current ? '' : ` · ${quarterLabel(f.period)} report`}</span></th><td class="hf-numeric">${money(f.total)}</td><td class="hf-numeric">${int(f.holdings.length)}</td><td class="hf-numeric hf-optional">${date(f.report.filedAt)}</td></tr>`)))}` }));
+      funds.slice(0, INDEX_ROWS).map(f => `<tr><th><a class="hf-name" href="${fundHref(f)}">${esc(f.name)}</a><span class="hf-subtext">${esc(f.city)}${f.concentrated ? ' · concentrated' : ''}${f.current ? '' : ` · ${quarterLabel(f.period)} report`}</span></th><td class="hf-numeric">${money(f.total)}</td><td class="hf-numeric">${int(f.holdings.length)}</td><td class="hf-numeric hf-optional">${date(f.report.filedAt)}</td></tr>`), 50))}` }));
   for (const f of funds) {
     const opened = f.holdings.filter(h => h.change === 'new').length;
     const Q = quarterLabel(f.period), P = quarterLabel(priorQuarter(f.period)), period = f.period, prior = priorQuarter(f.period);
@@ -147,7 +148,7 @@ export function renderSite({ out, period, prior, partial, priorFilers, funds, st
       ${stats([['Reported value', money(f.total) + (f.priorTotal ? ` <small class="hf-muted">${signed(f.total / f.priorTotal - 1, 0)}%</small>` : '')], ['Positions', int(f.holdings.length)], ['Opened · sold out', f.hasPrior ? `${int(opened)} · ${int(f.sold.length)}` : '—']])}
       ${holdingsSection(f, P)}
       ${f.sold.length ? `<details class="hn-fold"><summary><h2>Sold out <span>${int(f.sold.length)}</span></h2><span>Held at ${esc(date(prior))}, gone at ${esc(date(period))}</span></summary>${table([['Stock'], [`% of fund in ${P}`, 1], [`Value in ${P}`, 1]],
-        f.sold.slice(0, SOLD_ROWS).map(s => `<tr${tv(stockOf.get(s.i))}><th>${stockCell(s.i)}${s.gone ? '<span class="hf-subtext">Merged away or delisted</span>' : ''}</th><td class="hf-numeric">${pct(s.weight)}</td><td class="hf-numeric">${money(s.value)}</td></tr>`))}</details>` : ''}
+        f.sold.slice(0, SOLD_ROWS).map(s => `<tr${tv(stockOf.get(s.i))}><th>${stockCell(s.i)}${s.gone ? '<span class="hf-subtext">Merged away or delisted</span>' : ''}</th><td class="hf-numeric">${pct(s.weight)}</td><td class="hf-numeric">${money(s.value)}</td></tr>`), 10)}</details>` : ''}
       ${historySection(f.history, [['Reported value', h => money(h.value), h => h.value], ['Positions', h => int(h.positions)], ['Opened', h => h.opened == null ? '—' : int(h.opened)], ['Sold out', h => h.sold == null ? '—' : int(h.sold)]])}
       ${notes.map(n => `<p class="hf-caption">${esc(n)}</p>`).join('')}` }));
   }
@@ -157,7 +158,7 @@ export function renderSite({ out, period, prior, partial, priorFilers, funds, st
   write('stocks/index.html', layout({ title: 'Stocks', path: '/stocks/', current: '/stocks/', description: `The stocks most held by 13F filers, from their latest filings.`, body: `
     ${head(`13F holdings · ${Q}`, 'Stocks', date(period), `${int(stocks.length)} stocks. Search finds any of them.`)}
     ${section(`The ${INDEX_ROWS} most held`, 'By number of 13F filers', table([['Stock'], ['Filers', 1], ['Concentrated funds', 1], ['Value held', 1, 1], ['Sector', 0, 1]],
-      byHolders.slice(0, INDEX_ROWS).map(s => `<tr${tv(s)}><th>${stockLink(s)}</th><td class="hf-numeric">${int(s.holders.length)}</td><td class="hf-numeric">${int(s.concentratedHolders)}</td><td class="hf-numeric hf-optional">${money(s.value)}</td><td class="hf-optional"><a class="hf-muted" href="/sectors/${s.sector}/">${esc(sectorName.get(s.sector))}</a></td></tr>`)))}` }));
+      byHolders.slice(0, INDEX_ROWS).map(s => `<tr${tv(s)}><th>${stockLink(s)}</th><td class="hf-numeric">${int(s.holders.length)}</td><td class="hf-numeric">${int(s.concentratedHolders)}</td><td class="hf-numeric hf-optional">${money(s.value)}</td><td class="hf-optional"><a class="hf-muted" href="/sectors/${s.sector}/">${esc(sectorName.get(s.sector))}</a></td></tr>`), 50))}` }));
   for (const s of stocks) {
     const holders = s.holders.length;
     write(`stocks/${s.slug}/index.html`, layout({ title: `${s.security.label} (${s.security.ticker}) 13F holders, ${Q}`, path: `/stocks/${s.slug}/`, current: '/stocks/', description: `${int(holders)} 13F filers held ${s.security.label} (${s.security.ticker}) at ${date(period)}: who opened, added, cut and sold out.`, body: `
@@ -167,7 +168,7 @@ export function renderSite({ out, period, prior, partial, priorFilers, funds, st
       ${s.tv ? priceChart(s) : ''}
       ${historySection(s.history, [['Filers holding', h => int(h.holders), h => h.holders], ['Concentrated funds', h => int(h.concentrated)], ['Value held', h => money(h.value)]], partial ? period : null)}
       ${section('Holders', `By value held, from each filer's latest 13F`, table([['Fund'], ['% of fund', 1], ['Value', 1], ['Shares', 1, 1], [`Since ${P}`]],
-        s.holders.slice(0, STOCK_ROWS).map(h => `<tr><th><a class="hf-name" href="${fundHref(h.fund)}">${esc(h.fund.name)}</a>${h.fund.concentrated || !h.fund.current ? `<span class="hf-subtext">${[h.fund.concentrated && 'concentrated', !h.fund.current && `${quarterLabel(h.fund.period)} report`].filter(Boolean).join(' · ')}</span>` : ''}</th><td class="hf-numeric">${pct(h.weight, 2)}</td><td class="hf-numeric">${money(h.value)}</td><td class="hf-numeric hf-optional">${int(h.shares)}</td><td>${change(h)}</td></tr>`)))}
+        s.holders.slice(0, STOCK_ROWS).map(h => `<tr><th><a class="hf-name" href="${fundHref(h.fund)}">${esc(h.fund.name)}</a>${h.fund.concentrated || !h.fund.current ? `<span class="hf-subtext">${[h.fund.concentrated && 'concentrated', !h.fund.current && `${quarterLabel(h.fund.period)} report`].filter(Boolean).join(' · ')}</span>` : ''}</th><td class="hf-numeric">${pct(h.weight, 2)}</td><td class="hf-numeric">${money(h.value)}</td><td class="hf-numeric hf-optional">${int(h.shares)}</td><td>${change(h)}</td></tr>`), 25))}
       ${holders > STOCK_ROWS ? `<p class="hf-caption">Showing the ${STOCK_ROWS} largest of ${int(holders)} holders.</p>` : ''}` }));
   }
 
@@ -181,7 +182,7 @@ export function renderSite({ out, period, prior, partial, priorFilers, funds, st
       ${head(`Sector · ${Q}`, s.name, date(period), '', 'hf-detailhead')}
       ${stats([['Share of their stock money', `${pct(s.share)} <small class="hf-muted">${signed(s.share - s.was)} pts</small>`], ['Positions opened', int(s.opened)], ['Sold out', int(s.soldOut)]])}
       ${section(`The ${SECTOR_ROWS} most held`, 'By concentrated funds holding', table([['Stock'], ['Concentrated funds', 1], ['Opened', 1], ['Sold out', 1], ['All filers', 1, 1]],
-        s.stocks.slice(0, SECTOR_ROWS).map(x => `<tr${tv(x)}><th>${stockLink(x)}</th><td class="hf-numeric">${int(x.concentratedHolders)}</td><td class="hf-numeric">${int(x.opened)}</td><td class="hf-numeric">${int(x.soldOut)}</td><td class="hf-numeric hf-optional">${int(x.holders.length)}</td></tr>`)))}` }));
+        s.stocks.slice(0, SECTOR_ROWS).map(x => `<tr${tv(x)}><th>${stockLink(x)}</th><td class="hf-numeric">${int(x.concentratedHolders)}</td><td class="hf-numeric">${int(x.opened)}</td><td class="hf-numeric">${int(x.soldOut)}</td><td class="hf-numeric hf-optional">${int(x.holders.length)}</td></tr>`), 25))}` }));
   }
 
   // About
@@ -276,10 +277,16 @@ function stats(items) {
 function section(title, note, body, id = '') {
   return `<section${id ? ` id="${id}"` : ''}><div class="hf-tabletop"><h2>${esc(title)}</h2><span>${esc(note)}</span></div>${body}</section>`;
 }
-/** columns: [label, numeric?, optional?] */
-function table(columns, rows) {
+/**
+ * columns: [label, numeric?, optional?]. With show, rows past the first show are hidden behind a "Show all"
+ * button (site/holdings.js); a list only a few rows longer shows whole.
+ */
+function table(columns, rows, show = 0) {
   if (!rows.length) return '<div class="hf-empty">Nothing this quarter.</div>';
-  return `<div class="hf-tablewrap"><table class="hf-table"><thead><tr>${columns.map(([label, numeric, optional]) => `<th${numeric || optional ? ` class="${[numeric && 'hf-numeric', optional && 'hf-optional'].filter(Boolean).join(' ')}"` : ''}>${esc(label)}</th>`).join('')}</tr></thead><tbody>${rows.join('')}</tbody></table></div>`;
+  const clip = show && rows.length > show + 3;
+  const body = clip ? rows.map((row, n) => n < show ? row : row.replace(/^<tr/, '<tr class="hn-x"')) : rows;
+  const html = `<div class="hf-tablewrap"><table class="hf-table"><thead><tr>${columns.map(([label, numeric, optional]) => `<th${numeric || optional ? ` class="${[numeric && 'hf-numeric', optional && 'hf-optional'].filter(Boolean).join(' ')}"` : ''}>${esc(label)}</th>`).join('')}</tr></thead><tbody>${body.join('')}</tbody></table></div>`;
+  return clip ? `<div class="hn-clip">${html}<button type="button" class="hn-more">Show ${int(rows.length - show)} more</button></div>` : html;
 }
 
 const NAV = [['/', 'Discover'], ['/funds/', 'Funds'], ['/stocks/', 'Stocks'], ['/sectors/', 'Sectors'], ['/methodology/', 'How this works']];
@@ -289,7 +296,7 @@ function layout({ title, description, path: pagePath, current, body }) {
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${esc(full)}</title><meta name="description" content="${esc(description)}"><link rel="canonical" href="${SITE}${pagePath}">
 <meta property="og:title" content="${esc(full)}"><meta property="og:description" content="${esc(description)}"><meta property="og:image" content="${SITE}/icon-512.png"><meta name="twitter:card" content="summary">
-<link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="/apple-touch-icon.png"><link rel="stylesheet" href="/assets/site.css"><meta name="hn-base" content="/"><script src="/assets/search.js" defer></script><script src="/assets/price.js" defer></script><script src="/assets/holdings.js" defer></script></head>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="/apple-touch-icon.png"><link rel="stylesheet" href="/assets/site.css"><meta name="hn-base" content="/"><script src="/assets/search.js" defer></script><script src="/assets/price.js" defer></script><script src="/assets/holdings.js" defer></script><noscript><style>.hn-x{display:table-row}.hn-more{display:none}</style></noscript></head>
 <body><div class="hf-app"><header class="hf-header"><a href="/" class="hf-brand" aria-label="Heavy Numbers home"><img class="hf-brand-lockup" src="/brand/heavy-numbers-lockup-light.svg" alt="Heavy Numbers" width="547" height="100"></a>
 <div class="hs-search"><input type="search" placeholder="Search funds and stocks" aria-label="Search funds and stocks" autocomplete="off"><div class="hs-results" role="listbox" hidden></div></div>
 <nav class="hf-desktop-nav" aria-label="Main navigation">${nav}</nav>
