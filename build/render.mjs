@@ -16,7 +16,7 @@ const REPO = 'https://github.com/p11y/heavy-numbers';
 // The chart's colors: site.css's --ink, --text-primary, --text-body, --text-tertiary and --data-1.
 const COLORS = { ink: [17, 17, 17], textPrimary: [243, 240, 233], textBody: [217, 213, 207], textTertiary: [140, 137, 130], data1: [217, 213, 207] };
 const rgba = (token, alpha = 1) => `rgba(${COLORS[token].join(', ')}, ${alpha})`;
-const FUND_ROWS = 150, GROUP_ROWS = 10, STOCK_ROWS = 200, SOLD_ROWS = 50, INDEX_ROWS = 500, SECTOR_ROWS = 50;
+const RANK_ROWS = 200, FUND_ROWS = 150, GROUP_ROWS = 10, STOCK_ROWS = 200, SOLD_ROWS = 50, INDEX_ROWS = 500, SECTOR_ROWS = 50;
 
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const money = v => {
@@ -39,7 +39,7 @@ function change(h) {
   return `<span class="hf-badge ${cls}">${label}${amount}</span>`;
 }
 
-export function renderSite({ out, period, prior, partial, priorFilers, funds, stocks, sectors, securities, builtAt, dataSets, board = null }) {
+export function renderSite({ out, period, prior, partial, priorFilers, funds, stocks, sectors, securities, builtAt, dataSets, board = null, benchmark = [] }) {
   let pages = 0, bytes = 0;
   const write = (rel, html) => {
     const file = path.join(out, rel);
@@ -150,7 +150,7 @@ export function renderSite({ out, period, prior, partial, priorFilers, funds, st
       ${holdingsSection(f, P)}
       ${f.sold.length ? `<details class="hn-fold"><summary><h2>Sold out <span>${int(f.sold.length)}</span></h2><span>Held at ${esc(date(prior))}, gone at ${esc(date(period))}</span></summary>${table([['Stock'], [`% of fund in ${P}`, 1], [`Value in ${P}`, 1]],
         f.sold.slice(0, SOLD_ROWS).map(s => `<tr${tv(stockOf.get(s.i))}><th>${stockCell(s.i)}${s.gone ? '<span class="hf-subtext">Merged away or delisted</span>' : ''}</th><td class="hf-numeric">${pct(s.weight)}</td><td class="hf-numeric">${money(s.value)}</td></tr>`), 10)}</details>` : ''}
-      ${historySection(f.history, [['Reported value', h => money(h.value), h => h.value], ['Positions', h => int(h.positions)], ['Opened', h => h.opened == null ? '—' : int(h.opened)], ['Sold out', h => h.sold == null ? '—' : int(h.sold)]])}
+      ${historySection(f.history, [['Reported value', h => money(h.value), h => h.value], ['Positions', h => int(h.positions)], ['Opened', h => h.opened == null ? '—' : int(h.opened)], ['Sold out', h => h.sold == null ? '—' : int(h.sold)], ['Return from holdings', h => h.ret == null ? '—' : `${signed(h.ret)}%`]])}
       ${notes.map(n => `<p class="hf-caption">${esc(n)}</p>`).join('')}` }));
   }
 
@@ -186,6 +186,23 @@ export function renderSite({ out, period, prior, partial, priorFilers, funds, st
         s.stocks.slice(0, SECTOR_ROWS).map(x => `<tr${tv(x)}><th>${stockLink(x)}</th><td class="hf-numeric">${int(x.concentratedHolders)}</td><td class="hf-numeric">${int(x.opened)}</td><td class="hf-numeric">${int(x.soldOut)}</td><td class="hf-numeric hf-optional">${int(x.holders.length)}</td></tr>`), 25))}` }));
   }
 
+  // Rankings: concentrated funds by what their reported holdings earned over the last four quarters.
+  const ranked = funds.filter(f => f.concentrated && f.yearReturn != null).sort((a, b) => b.yearReturn - a.yearReturn);
+  const spyYear = benchmark.every(r => r != null) ? benchmark.reduce((n, r) => n * (1 + r), 1) - 1 : null;
+  const beat = spyYear == null ? null : ranked.filter(f => f.yearReturn > spyYear).length;
+  const quarters = [...benchmark.keys()].map(n => quarterLabel([period, prior, priorQuarter(prior), priorQuarter(priorQuarter(prior))][n])).reverse();
+  const topHolding = f => { const h = f.holdings[0]; const x = h && securities[h.i]; return h ? `${x.ticker ? `<span class="hf-ticker">${esc(x.ticker)}</span>` : `<span class="hf-position">${esc(x.label)}</span> `}<span class="hf-muted">${pct(h.weight, 0)}</span>` : ''; };
+  const rankRow = (f, n) => `<tr><td class="hf-numeric hf-muted">${n + 1}</td><th><a class="hf-name" href="${fundHref(f)}">${esc(f.name)}</a><span class="hf-subtext">${esc(f.city)} · ${int(f.holdings.length)} positions · ${money(f.total)}</span></th>
+    <td class="hf-numeric">${signed(f.yearReturn)}%</td><td class="hf-numeric">${spyYear == null ? '—' : `${signed(f.yearReturn - spyYear)} pts`}</td>
+    ${[...f.returns].reverse().map(r => `<td class="hf-numeric hf-optional">${r == null ? '—' : `${signed(r, 0)}%`}</td>`).join('')}<td class="hf-optional">${topHolding(f)}</td></tr>`;
+  const rankColumns = [['#', 1], ['Fund'], ['12 months', 1], ['vs S&P 500', 1], ...quarters.map(q => [q, 1, 1]), ['Largest holding', 0, 1]];
+  write('rankings/index.html', layout({ title: 'Fund rankings', path: '/rankings/', current: '/rankings/', description: `Concentrated funds ranked by what their reported holdings earned over the last 12 months, against the S&P 500.`, body: `
+    ${head(`Rankings · ${quarters[0]} to ${quarters.at(-1)}`, 'Fund rankings', date(period), `${int(ranked.length)} concentrated funds with four quarters of holdings`)}
+    ${stats([['S&P 500 (SPY), 12 months', spyYear == null ? '—' : `${signed(spyYear)}%`], ['Funds that beat it', beat == null ? '—' : `${int(beat)} <small class="hf-muted">of ${int(ranked.length)}</small>`], ['Median fund', ranked.length ? `${signed(ranked[ranked.length >> 1].yearReturn)}%` : '—']])}
+    ${section('Best 12 months', 'Return from holding each quarter-end portfolio until the next', table(rankColumns, ranked.slice(0, RANK_ROWS).map(rankRow), 50), 'best')}
+    ${section('Worst 12 months', 'The same funds, from the bottom', table(rankColumns, ranked.slice(-25).reverse().map((f, n) => rankRow(f, ranked.length - 1 - n)), 10), 'worst')}
+    <p class="hf-caption">A fund's return here is what its reported stock positions earned if it held each quarter-end portfolio unchanged until the next quarter end, at the median price all 13F filers reported, without dividends, fees or trading in between. It ranks the portfolios funds disclosed, not the returns their investors got. Funds need four quarters of holdings priced at least 70% by value. When we tested it over 2024 to 2025, a fund's rank one year did not predict its rank the next (rank correlation −0.016), so a high rank is a record, not a forecast. <a class="hf-inline-link" href="/methodology/#rankings">How this works</a>.</p>` }));
+
   // Bottleneck board
   if (board) {
     const byTicker = new Map(stocks.map(s => [s.security.ticker, s]));
@@ -212,6 +229,8 @@ export function renderSite({ out, period, prior, partial, priorFilers, funds, st
     <p>Discover reads only concentrated funds: a complete filing with 5 to 150 stock positions, at least $100M reported, at least 60% in operating-company stock and at most 25% in funds and ETFs. That leaves out index funds and banks, whose filings say little about choices. This quarter ${int(concentrated.length)} of ${int(cur.length)} filers${soFar} qualify.</p>
     <h2>Tickers and sectors</h2>
     <p>CUSIPs are matched to tickers through <a class="hf-inline-link" href="https://www.openfigi.com/">OpenFIGI</a>. Sectors come from each company's SEC industry code, with a short reviewed list of companies the code files somewhere a reader would not look.</p>
+    <h2 id="rankings">Fund rankings</h2>
+    <p><a class="hf-inline-link" href="/rankings/">Rankings</a> score each concentrated fund by what its reported positions earned over the last four quarters: each quarter, the fund's holdings at the quarter end before, held unchanged to the next quarter end, at the median price all 13F filers reported. Price moves beyond 0.3× or 3.5× in a quarter are taken as splits or reporting errors and left out, and a quarter counts only when at least 70% of the fund's value is priced at both ends. Dividends, fees and trades between quarter ends are not seen. The S&amp;P 500 line is SPY's 13F price over the same quarters.</p>
     <h2>Bottleneck board</h2>
     <p>The <a class="hf-inline-link" href="/bottlenecks/">bottleneck board</a> reads a reviewed list of companies along the AI build-out from SEC's <a class="hf-inline-link" href="https://www.sec.gov/search-filings/edgar-application-programming-interfaces">XBRL company facts</a>: each one's backlog (remaining performance obligations) at its latest quarter end and about a year before, and its sales and capital spending over the last twelve months and the twelve before. It is refreshed with every build, so a new 10-Q shows up the day after it is filed.</p>
     <h2>Did following these funds work?</h2>
@@ -232,7 +251,7 @@ export function renderSite({ out, period, prior, partial, priorFilers, funds, st
     ...stocks.map(s => [s.security.label, `${BASE}/stocks/${s.slug}/`, 's', s.security.ticker, Math.round(s.value / 1e6)]),
   ];
   write('search.json', JSON.stringify(index));
-  const urls = ['/', '/funds/', '/stocks/', '/sectors/', ...(board ? ['/bottlenecks/'] : []), '/methodology/', ...sectorRows.map(s => `/sectors/${s.key}/`), ...funds.map(fundHref), ...stocks.map(s => `/stocks/${s.slug}/`)];
+  const urls = ['/', '/funds/', '/stocks/', '/sectors/', '/rankings/', ...(board ? ['/bottlenecks/'] : []), '/methodology/', ...sectorRows.map(s => `/sectors/${s.key}/`), ...funds.map(fundHref), ...stocks.map(s => `/stocks/${s.slug}/`)];
   write('sitemap.xml', `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.map(u => `<url><loc>${SITE}${u}</loc></url>`).join('\n')}\n</urlset>\n`);
   write('robots.txt', `User-agent: *\nAllow: /\nSitemap: ${SITE}/sitemap.xml\n`);
   mkdirSync(path.join(out, 'assets'), { recursive: true });
@@ -302,7 +321,7 @@ function table(columns, rows, show = 0) {
   return clip ? `<div class="hn-clip">${html}<button type="button" class="hn-more">Show ${int(rows.length - show)} more</button></div>` : html;
 }
 
-const NAV = [['/', 'Discover'], ['/funds/', 'Funds'], ['/stocks/', 'Stocks'], ['/sectors/', 'Sectors'], ['/bottlenecks/', 'Bottlenecks'], ['/methodology/', 'How this works']];
+const NAV = [['/', 'Discover'], ['/funds/', 'Funds'], ['/stocks/', 'Stocks'], ['/sectors/', 'Sectors'], ['/rankings/', 'Rankings'], ['/bottlenecks/', 'Bottlenecks'], ['/methodology/', 'How this works']];
 function layout({ title, description, path: pagePath, current, body }) {
   const nav = NAV.map(([href, label]) => `<a href="${href}"${href === current ? ' aria-current="page"' : ''}>${label}</a>`).join('');
   const full = `${title} · Heavy Numbers`;
