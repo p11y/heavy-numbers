@@ -41,3 +41,5 @@ section{scroll-margin-top:20px}
 .hn-more{display:block;width:100%;margin:0;padding:11px 0;background:none;border:0;border-bottom:1px solid var(--line);font:11px 'IBM Plex Mono',monospace;color:var(--text-secondary);text-align:left}.hn-more:hover{color:var(--text-primary);background:var(--raised)}
 .hn-group .hn-more{margin-left:18px;width:calc(100% - 18px);margin-bottom:14px}.hn-group .hn-clip .hf-tablewrap{margin-bottom:0}
 @media(max-width:760px){.hn-group .hn-more{margin-left:0;width:100%}}
+/* Sortable tables: every column heading sorts; the sorted one shows its direction. */
+.hf-table thead th{cursor:pointer;user-select:none}.hf-table thead th:hover{color:var(--text-body)}.hf-table thead th[aria-sort=descending]::after{content:' ↓'}.hf-table thead th[aria-sort=ascending]::after{content:' ↑'}.hf-table thead th[aria-sort=descending],.hf-table thead th[aria-sort=ascending]{color:var(--text-primary)}
