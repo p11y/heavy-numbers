@@ -109,4 +109,10 @@ export async function fillSic(ciks, cache) {
   return missing.length;
 }
 
+/** A company's XBRL facts from data.sec.gov, or null when SEC has none. */
+export async function fetchCompanyFacts(cik) {
+  const response = await secFetch(`https://data.sec.gov/api/xbrl/companyfacts/CIK${cik}.json`);
+  return response.ok ? response.json() : null;
+}
+
 export const readJson = (file, fallback) => existsSync(file) ? JSON.parse(readFileSync(file, 'utf8')) : fallback;

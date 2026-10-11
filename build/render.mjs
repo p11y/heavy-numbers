@@ -3,6 +3,7 @@ import { copyFileSync, cpSync, mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { quarterLabel, priorQuarter } from './model.mjs';
+import { meaningful } from './bottlenecks.mjs';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 // Pages reports http:// until its certificate is issued; the site is always served over HTTPS after that.
@@ -38,7 +39,7 @@ function change(h) {
   return `<span class="hf-badge ${cls}">${label}${amount}</span>`;
 }
 
-export function renderSite({ out, period, prior, partial, priorFilers, funds, stocks, sectors, securities, builtAt, dataSets }) {
+export function renderSite({ out, period, prior, partial, priorFilers, funds, stocks, sectors, securities, builtAt, dataSets, board = null }) {
   let pages = 0, bytes = 0;
   const write = (rel, html) => {
     const file = path.join(out, rel);
@@ -185,6 +186,16 @@ export function renderSite({ out, period, prior, partial, priorFilers, funds, st
         s.stocks.slice(0, SECTOR_ROWS).map(x => `<tr${tv(x)}><th>${stockLink(x)}</th><td class="hf-numeric">${int(x.concentratedHolders)}</td><td class="hf-numeric">${int(x.opened)}</td><td class="hf-numeric">${int(x.soldOut)}</td><td class="hf-numeric hf-optional">${int(x.holders.length)}</td></tr>`), 25))}` }));
   }
 
+  // Bottleneck board
+  if (board) {
+    const byTicker = new Map(stocks.map(s => [s.security.ticker, s]));
+    const fundsFor = ticker => {
+      const s = byTicker.get(ticker);
+      return s ? { slug: s.slug, concentrated: s.concentratedHolders, concentratedYearAgo: s.history[3]?.[1]?.concentrated ?? null, opened: s.opened, soldOut: s.soldOut } : null;
+    };
+    write('bottlenecks/index.html', bottlenecksPage({ board, fundsFor, Q, since: quarterLabel(priorQuarter(priorQuarter(prior))) }));
+  }
+
   // About
   write('methodology/index.html', layout({ title: 'How this works', path: '/methodology/', current: '/methodology/', description: 'Where the numbers come from and what they leave out.', body: `
     ${head('Methodology', 'How this works', date(period), `Built ${date(builtAt.slice(0, 10))}`)}
@@ -201,6 +212,8 @@ export function renderSite({ out, period, prior, partial, priorFilers, funds, st
     <p>Discover reads only concentrated funds: a complete filing with 5 to 150 stock positions, at least $100M reported, at least 60% in operating-company stock and at most 25% in funds and ETFs. That leaves out index funds and banks, whose filings say little about choices. This quarter ${int(concentrated.length)} of ${int(cur.length)} filers${soFar} qualify.</p>
     <h2>Tickers and sectors</h2>
     <p>CUSIPs are matched to tickers through <a class="hf-inline-link" href="https://www.openfigi.com/">OpenFIGI</a>. Sectors come from each company's SEC industry code, with a short reviewed list of companies the code files somewhere a reader would not look.</p>
+    <h2>Bottleneck board</h2>
+    <p>The <a class="hf-inline-link" href="/bottlenecks/">bottleneck board</a> reads a reviewed list of companies along the AI build-out from SEC's <a class="hf-inline-link" href="https://www.sec.gov/search-filings/edgar-application-programming-interfaces">XBRL company facts</a>: each one's backlog (remaining performance obligations) at its latest quarter end and about a year before, and its sales and capital spending over the last twelve months and the twelve before. It is refreshed with every build, so a new 10-Q shows up the day after it is filed.</p>
     <h2>Did following these funds work?</h2>
     <p>No. We tested lists like Discover's (most opened, 3%+ new bets, breadth, buying into weakness) from 2024 to 2025 against the S&amp;P 500 and against a random stock the same funds held. None beat the random stock by more than noise, and ranking funds by one year's results predicted nothing about the next (rank correlation −0.016). Quarterly 13F holdings arrive about 45 days late, and by then the market has read them too. Use this site to see who owns what, not to pick stocks.</p>
     <h2>Open source</h2>
@@ -219,7 +232,7 @@ export function renderSite({ out, period, prior, partial, priorFilers, funds, st
     ...stocks.map(s => [s.security.label, `${BASE}/stocks/${s.slug}/`, 's', s.security.ticker, Math.round(s.value / 1e6)]),
   ];
   write('search.json', JSON.stringify(index));
-  const urls = ['/', '/funds/', '/stocks/', '/sectors/', '/methodology/', ...sectorRows.map(s => `/sectors/${s.key}/`), ...funds.map(fundHref), ...stocks.map(s => `/stocks/${s.slug}/`)];
+  const urls = ['/', '/funds/', '/stocks/', '/sectors/', ...(board ? ['/bottlenecks/'] : []), '/methodology/', ...sectorRows.map(s => `/sectors/${s.key}/`), ...funds.map(fundHref), ...stocks.map(s => `/stocks/${s.slug}/`)];
   write('sitemap.xml', `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.map(u => `<url><loc>${SITE}${u}</loc></url>`).join('\n')}\n</urlset>\n`);
   write('robots.txt', `User-agent: *\nAllow: /\nSitemap: ${SITE}/sitemap.xml\n`);
   mkdirSync(path.join(out, 'assets'), { recursive: true });
@@ -289,7 +302,7 @@ function table(columns, rows, show = 0) {
   return clip ? `<div class="hn-clip">${html}<button type="button" class="hn-more">Show ${int(rows.length - show)} more</button></div>` : html;
 }
 
-const NAV = [['/', 'Discover'], ['/funds/', 'Funds'], ['/stocks/', 'Stocks'], ['/sectors/', 'Sectors'], ['/methodology/', 'How this works']];
+const NAV = [['/', 'Discover'], ['/funds/', 'Funds'], ['/stocks/', 'Stocks'], ['/sectors/', 'Sectors'], ['/bottlenecks/', 'Bottlenecks'], ['/methodology/', 'How this works']];
 function layout({ title, description, path: pagePath, current, body }) {
   const nav = NAV.map(([href, label]) => `<a href="${href}"${href === current ? ' aria-current="page"' : ''}>${label}</a>`).join('');
   const full = `${title} · Heavy Numbers`;
@@ -303,4 +316,70 @@ function layout({ title, description, path: pagePath, current, body }) {
 <details class="hf-mobile-menu"><summary aria-label="Navigation menu"><span>Menu</span><svg viewBox="0 0 24 16" fill="none" aria-hidden="true"><path d="M0 4h24M0 12h24" stroke="currentColor" stroke-width="1.5"/></svg></summary><nav aria-label="Mobile navigation">${nav}</nav></details></header>
 <main class="hf-main">${body}</main>
 <footer class="hf-footer"><span>Heavy Numbers · Data from SEC 13F filings. Not investment advice.</span><a href="/methodology/">How this works</a><a href="${REPO}">Source on GitHub ↗</a></footer></div></body></html>`;
+}
+
+const times = g => g == null ? '—' : g >= 9 ? `${(1 + g).toFixed(0)}×` : `${signed(g, 0)}%`;
+/** Five quarter-ends of backlog as small bars, tallest = the largest. */
+function spark(history) {
+  if (!history || history.length < 2) return '';
+  const most = Math.max(...history.map(([, v]) => v));
+  return `<span class="hn-spark" aria-hidden="true">${history.map(([end, v]) => `<i style="height:${Math.max(1, Math.round(16 * v / most))}px" title="${esc(date(end))}: ${esc(money(v))}"></i>`).join('')}</span>`;
+}
+
+/**
+ * The bottleneck board's page. board is buildBoard's result; fundsFor(ticker) gives { slug, concentrated,
+ * concentratedYearAgo, opened, soldOut } from the 13F data, or null; Q names the quarter those come from.
+ */
+export function bottlenecksPage({ board, fundsFor, Q, since }) {
+  const layers = board.layers.filter(l => l.rows.length);
+  const cloud = layers.find(l => l.key === 'cloud');
+  const cloudBacklog = cloud.rows.filter(r => r.backlog?.before > 0);
+  const sum = (list, f) => list.reduce((n, r) => n + f(r), 0);
+  const signedRows = layers.filter(l => l.totals.backlogGrowth != null);
+  const tightest = [...signedRows].sort((a, b) => (b.totals.backlogGrowth - b.totals.revenueGrowth) - (a.totals.backlogGrowth - a.totals.revenueGrowth))[0];
+  const scale = Math.min(3, Math.max(...signedRows.flatMap(l => [Math.abs(l.totals.backlogGrowth), Math.abs(l.totals.revenueGrowth)])));
+  const bar = (g, cls) => g == null ? '' : `<span class="hn-bar ${cls}" style="width:${Math.max(2, Math.round(90 * Math.min(Math.abs(g), scale) / scale))}px"></span>`;
+  const overview = table([['Layer'], ['Backlog vs a year ago', 1], ['Sales vs a year ago', 1], ['Backlog minus sales', 1], ['Companies with backlog', 1, 1]],
+    layers.map(l => {
+      const t = l.totals, gap = t.backlogGrowth == null ? null : t.backlogGrowth - t.revenueGrowth;
+      return `<tr><th><a class="hf-name" href="#${l.key}">${esc(l.name)}</a><span class="hf-subtext">${l.rows.map(r => r.ticker).join(' · ')}</span></th>
+        <td class="hf-numeric">${bar(t.backlogGrowth, 'hn-bar-a')}${times(t.backlogGrowth)}</td><td class="hf-numeric">${bar(t.revenueGrowth, 'hn-bar-b')}${times(t.revenueGrowth)}</td>
+        <td class="hf-numeric">${gap == null ? '—' : `${signed(gap, 0)} pts`}</td><td class="hf-numeric hf-optional">${t.reporting} of ${l.rows.length}</td></tr>`;
+    }));
+  const fundCells = r => {
+    const f = fundsFor(r.ticker);
+    if (!f) return `<td class="hf-numeric hf-muted">—</td><td class="hf-numeric hf-optional hf-muted">—</td>`;
+    const delta = f.concentratedYearAgo == null ? '' : ` <small>${f.concentrated - f.concentratedYearAgo >= 0 ? '+' : '−'}${int(Math.abs(f.concentrated - f.concentratedYearAgo))} since ${esc(since)}</small>`;
+    return `<td class="hf-numeric">${int(f.concentrated)}${delta}</td><td class="hf-numeric hf-optional">${int(f.opened)} · ${int(f.soldOut)}</td>`;
+  };
+  const company = r => {
+    const f = fundsFor(r.ticker);
+    const name = f?.slug ? `<a class="hf-name" href="/stocks/${f.slug}/">${esc(r.name)}</a>` : `<span class="hf-name">${esc(r.name)}</span>`;
+    return `<span class="hf-ticker">${esc(r.ticker)}</span>${name}`;
+  };
+  const backlogCells = r => {
+    if (!r.backlog) return `<td class="hf-numeric hf-muted">Not reported</td><td class="hf-numeric hf-muted">—</td><td class="hf-numeric hf-muted hf-optional">—</td>`;
+    const small = !meaningful(r);
+    return `<td class="hf-numeric">${spark(r.backlog.history)}${money(r.backlog.value)}<small>${small ? 'Mostly service contracts' : `at ${esc(date(r.backlog.end))}`}</small></td>
+      <td class="hf-numeric${small ? ' hf-muted' : ''}">${times(r.backlogGrowth)}</td><td class="hf-numeric hf-optional${small ? ' hf-muted' : ''}">${r.cover == null ? '—' : r.cover.toFixed(1)}</td>`;
+  };
+  const order = rows => [...rows].sort((a, b) => (meaningful(b) - meaningful(a)) || (meaningful(a) ? ((b.backlogGrowth ?? -9) - (b.revenueGrowth ?? 0)) - ((a.backlogGrowth ?? -9) - (a.revenueGrowth ?? 0)) : (b.revenue?.value ?? 0) - (a.revenue?.value ?? 0)));
+  const layerSection = l => {
+    const capex = l.key === 'cloud';
+    const columns = [['Company'], ['Backlog', 1], ['1 year', 1], ['Years booked', 1, 1], ['Sales, 12 mo', 1], ['1 year', 1],
+      ...(capex ? [['Capex, 12 mo', 1], ['1 year', 1]] : []), ['Concentrated funds', 1], [`Opened · sold, ${Q}`, 1, 1]];
+    const rows = order(l.rows).map(r => `<tr><th>${company(r)}</th>${backlogCells(r)}
+      <td class="hf-numeric">${r.revenue ? money(r.revenue.value) : '—'}</td><td class="hf-numeric">${times(r.revenueGrowth)}</td>
+      ${capex ? `<td class="hf-numeric">${r.capex ? money(r.capex.value) : '—'}</td><td class="hf-numeric">${times(r.capexGrowth)}</td>` : ''}${fundCells(r)}</tr>`);
+    return section(l.name, l.note, table(columns, rows), l.key);
+  };
+  return layout({ title: 'Bottleneck board: where the AI build-out is stuck', path: '/bottlenecks/', current: '/bottlenecks/', description: 'Order backlog against sales for the companies building AI data centers, from their SEC filings: where orders are piling up faster than they can ship.', body: `
+    ${head('Bottleneck board · 10-Q and 10-K filings', 'Where the AI build-out is stuck', date(board.asOf), `Each company's latest quarterly or annual report`)}
+    ${stats([['Cloud capex (buildings and equipment), 12 months', `${money(cloud.totals.capex)} <small class="hf-muted">${times(cloud.totals.capexGrowth)}</small>`],
+      ['Cloud contracts signed, not yet delivered', `${money(sum(cloudBacklog, r => r.backlog.value))} <small class="hf-muted">${times(sum(cloudBacklog, r => r.backlog.value) / sum(cloudBacklog, r => r.backlog.before) - 1)}</small>`],
+      ['Widest gap between orders and sales', `<a class="hf-statlink" href="#${tightest.key}">${esc(tightest.name)}</a>`]])}
+    <div class="hf-prose"><p><strong>Backlog</strong> is work customers have signed for that the company has not delivered yet. When it grows much faster than sales, orders are arriving faster than the company can ship, so that link in the chain is a constraint. When sales catch up with backlog, the constraint is easing.</p></div>
+    ${section('The chain', 'Layers from the buyers down to the power plants. Backlog and sales add up the companies that report both a year apart', overview, 'chain')}
+    ${layers.map(layerSection).join('')}
+    <p class="hf-caption">Backlog is each company's "remaining performance obligations" in its XBRL filings with the SEC; sales and spending are the last twelve months, summed from its quarterly and annual reports. Capex is cash spent on buildings and equipment. Concentrated funds are the ones Discover reads, and the small number under each is the change in how many hold the stock since ${esc(since)}. A backlog worth under two months of sales is mostly service and support contracts, so it is shown but left out of the layer totals. A sudden step in the small bars can come from an acquisition rather than new orders. Companies that file abroad (TSMC, ASML) don't file these reports and are left out. Fund columns are from ${esc(Q)} 13F filings.</p>` });
 }
