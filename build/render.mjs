@@ -15,7 +15,7 @@ const REPO = 'https://github.com/p11y/heavy-numbers';
 // The chart's colors: site.css's --ink, --text-primary, --text-body, --text-tertiary and --data-1.
 const COLORS = { ink: [17, 17, 17], textPrimary: [243, 240, 233], textBody: [217, 213, 207], textTertiary: [140, 137, 130], data1: [217, 213, 207] };
 const rgba = (token, alpha = 1) => `rgba(${COLORS[token].join(', ')}, ${alpha})`;
-const RANK_ROWS = 200, FUND_ROWS = 150, GROUP_ROWS = 10, STOCK_ROWS = 200, SOLD_ROWS = 50, INDEX_ROWS = 500, SECTOR_ROWS = 50;
+const RANK_ROWS = 200, BROAD_ROWS = 100, BROAD = { minPositions: 10, maxShare: 0.5 }, FUND_ROWS = 150, GROUP_ROWS = 10, STOCK_ROWS = 200, SOLD_ROWS = 50, INDEX_ROWS = 500, SECTOR_ROWS = 50;
 
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const money = v => {
@@ -31,6 +31,11 @@ const date = iso => new Date(`${iso}T00:00:00Z`).toLocaleDateString('en-US', { m
 const secFiling = report => `https://www.sec.gov/Archives/edgar/data/${Number(report.cik)}/${report.base.accession.replace(/-/g, '')}/`;
 
 const CHANGE = { new: ['New', 'hf-new'], added: ['Added', 'hf-increased'], cut: ['Cut', 'hf-reduced'], sold: ['Sold out', 'hf-exited'], same: ['Held', 'hf-muted'] };
+/** A change's place when sorting: new, then added (most first), held, cut (least first), then no comparison. */
+function changeRank(h) {
+  const p = Number.isFinite(h.changePct) ? h.changePct : 0;
+  return { new: 3, added: 2 + Math.max(0, p) / (1 + Math.max(0, p)), same: 1, cut: Math.max(0, 1 + p) * 0.99 }[h.change] ?? -1;
+}
 function change(h) {
   if (!h.change) return '<span class="hf-muted">—</span>';
   const [label, cls] = CHANGE[h.change];
@@ -60,7 +65,7 @@ export function renderSite({ out, period, prior, partial, priorFilers, funds, st
   };
   const stockLink = s => `<span class="hf-ticker">${esc(s.security.ticker)}</span><a class="hf-name" href="/stocks/${s.slug}/">${esc(s.security.label)}</a>`;
   const sectorName = new Map(sectors.map(s => [s.key, s.name]));
-  const holdingRow = (h, n) => `<tr${tv(stockOf.get(h.i))}${n == null ? '' : ` data-n="${n}"`}><th>${stockCell(h.i, n == null)}</th><td class="hf-numeric">${pct(h.weight)}</td><td class="hf-numeric">${money(h.value)}</td><td class="hf-numeric hf-optional">${int(h.shares)}</td><td>${change(h)}</td></tr>`;
+  const holdingRow = (h, n) => `<tr${tv(stockOf.get(h.i))}${n == null ? '' : ` data-n="${n}"`}><th>${stockCell(h.i, n == null)}</th><td class="hf-numeric">${pct(h.weight)}</td><td class="hf-numeric">${money(h.value)}</td><td class="hf-numeric hf-optional">${int(h.shares)}</td><td data-v="${changeRank(h).toFixed(4)}">${change(h)}</td></tr>`;
   /** A holding's group on a fund page: its stock's sector, funds and ETFs together, else Other. */
   const groupOf = h => {
     const s = stockOf.get(h.i);
@@ -99,12 +104,17 @@ export function renderSite({ out, period, prior, partial, priorFilers, funds, st
       <div class="hn-bysector">${strip}${bySector}</div><div class="hn-flat" hidden></div></section>`;
   };
   /** What drove a fund's twelve-month return: its five biggest contributors and its three biggest drags. */
+  // When a fund first reported a stock, at the 13F price that quarter, and the price now. The data's first
+  // quarter can only say "by then".
+  const oldest = priorQuarter(priorQuarter(priorQuarter(priorQuarter(period))));
+  const price = v => v == null ? '—' : `$${v >= 100 ? int(v) : v.toFixed(2)}`;
+  const entry = c => !c.first ? '' : `${c.first.period === oldest ? `Held by ${quarterLabel(oldest)}` : `First reported ${quarterLabel(c.first.period)}`} at ${price(c.first.price)}${c.price != null ? `, ${price(c.price)} at ${quarterLabel(period)}` : ''}`;
   const contributorsSection = f => {
     if (f.yearReturn == null || !f.contributors.length) return '';
     const up = f.contributors.slice(0, 5).filter(c => c.share > 0), down = f.contributors.slice(-3).filter(c => c.share < 0).reverse();
     const weight = new Map(f.holdings.map(h => [h.i, h.weight]));
-    const row = c => `<tr${tv(stockOf.get(c.i))}><th>${stockCell(c.i, false)}</th><td class="hf-numeric">${signed(c.share)} pts</td><td class="hf-numeric">${weight.has(c.i) ? pct(weight.get(c.i)) : '<span class="hf-muted">Not held now</span>'}</td></tr>`;
-    return section('What drove the last 12 months', `${signed(f.yearReturn)}% from holdings, in points each stock added or took away`, table([['Stock'], ['Points of the return', 1], ['% of fund now', 1]], [...up, ...down].map(row)), 'drivers');
+    const row = c => `<tr${tv(stockOf.get(c.i))}><th>${stockCell(c.i, false)}</th><td class="hf-numeric">${signed(c.share)} pts</td><td class="hf-numeric">${weight.has(c.i) ? pct(weight.get(c.i)) : '<span class="hf-muted">Not held now</span>'}</td><td class="hf-muted hf-optional">${esc(entry(c))}</td></tr>`;
+    return section('What drove the last 12 months', `${signed(f.yearReturn)}% from holdings, in points each stock added or took away`, table([['Stock'], ['Points of the return', 1], ['% of fund now', 1], ['Bought', 0, 1]], [...up, ...down].map(row)), 'drivers');
   };
   const cur = funds.filter(f => f.current);
   const filed = cur.map(f => f.report.filedAt).sort();
@@ -196,6 +206,8 @@ export function renderSite({ out, period, prior, partial, priorFilers, funds, st
 
   // Rankings: concentrated funds by what their reported holdings earned over the last four quarters.
   const ranked = funds.filter(f => f.concentrated && f.yearReturn != null).sort((a, b) => b.yearReturn - a.yearReturn);
+  // Broad winners: ten or more positions, and no one stock behind more than half of a positive return.
+  const broad = ranked.filter(f => f.holdings.length >= BROAD.minPositions && f.yearReturn > 0 && f.contributors.length && f.contributors[0].share <= BROAD.maxShare * f.yearReturn);
   const spyYear = benchmark.every(r => r != null) ? benchmark.reduce((n, r) => n * (1 + r), 1) - 1 : null;
   const beat = spyYear == null ? null : ranked.filter(f => f.yearReturn > spyYear).length;
   const quarters = [...benchmark.keys()].map(n => quarterLabel([period, prior, priorQuarter(prior), priorQuarter(priorQuarter(prior))][n])).reverse();
@@ -205,7 +217,7 @@ export function renderSite({ out, period, prior, partial, priorFilers, funds, st
     const x = securities[c.i], page = stockOf.get(c.i);
     const tag = x.ticker ? `<span class="hf-ticker">${esc(x.ticker)}</span>` : '';
     const name = page ? `<a class="hf-position" href="/stocks/${page.slug}/">${esc(x.label)}</a>` : `<span class="hf-position">${esc(x.label)}</span>`;
-    return `${tag}${name}<small>${signed(c.share, 0)} pts of ${signed(f.yearReturn, 0)}%</small>`;
+    return `${tag}${name}<small>${signed(c.share, 0)} pts of ${signed(f.yearReturn, 0)}%${c.first ? ` · ${esc(entry(c))}` : ''}</small>`;
   };
   const rankRow = (f, n) => `<tr><td class="hf-numeric hf-muted">${n + 1}</td><th><a class="hf-name" href="${fundHref(f)}">${esc(f.name)}</a><span class="hf-subtext">${esc(f.city)} · ${int(f.holdings.length)} positions · ${money(f.total)}</span></th>
     <td class="hf-numeric">${signed(f.yearReturn)}%</td><td class="hf-numeric">${spyYear == null ? '—' : `${signed(f.yearReturn - spyYear)} pts`}</td>
@@ -214,9 +226,10 @@ export function renderSite({ out, period, prior, partial, priorFilers, funds, st
   write('rankings/index.html', layout({ title: 'Fund rankings', path: '/rankings/', current: '/rankings/', description: `Concentrated funds ranked by what their reported holdings earned over the last 12 months, against the S&P 500.`, body: `
     ${head(`Rankings · ${quarters[0]} to ${quarters.at(-1)}`, 'Fund rankings', date(period), `${int(ranked.length)} concentrated funds with four quarters of holdings`)}
     ${stats([['S&P 500 (SPY), 12 months', spyYear == null ? '—' : `${signed(spyYear)}%`], ['Funds that beat it', beat == null ? '—' : `${int(beat)} <small class="hf-muted">of ${int(ranked.length)}</small>`], ['Median fund', ranked.length ? `${signed(ranked[ranked.length >> 1].yearReturn)}%` : '—']])}
-    ${section('Best 12 months', 'Return from holding each quarter-end portfolio until the next', table(rankColumns, ranked.slice(0, RANK_ROWS).map(rankRow), 50), 'best')}
+    ${section('Broad winners', `Best 12 months among funds with ${BROAD.minPositions}+ positions where no one stock made more than half the return`, table(rankColumns, broad.slice(0, BROAD_ROWS).map(rankRow), 50), 'broad')}
+    ${section('All funds', 'Best 12 months, including funds that won on one stock', table(rankColumns, ranked.slice(0, RANK_ROWS).map(rankRow), 25), 'best')}
     ${section('Worst 12 months', 'The same funds, from the bottom', table(rankColumns, ranked.slice(-25).reverse().map((f, n) => rankRow(f, ranked.length - 1 - n)), 10), 'worst')}
-    <p class="hf-caption">A fund's return here is what its reported stock positions earned if it held each quarter-end portfolio unchanged until the next quarter end, at the median price all 13F filers reported, without dividends, fees or trading in between. It ranks the portfolios funds disclosed, not the returns their investors got. The biggest contributor is the stock that added the most points to that return. Funds need four quarters of holdings priced at least 70% by value. When we tested it over 2024 to 2025, a fund's rank one year did not predict its rank the next (rank correlation −0.016), so a high rank is a record, not a forecast. <a class="hf-inline-link" href="/methodology/#rankings">How this works</a>.</p>` }));
+    <p class="hf-caption">A fund's return here is what its reported stock positions earned if it held each quarter-end portfolio unchanged until the next quarter end, at the median price all 13F filers reported, without dividends, fees or trading in between. It ranks the portfolios funds disclosed, not the returns their investors got. The biggest contributor is the stock that added the most points to that return, with the quarter the fund first reported it and the 13F price then. Broad winners leaves out funds with fewer than ${BROAD.minPositions} positions or one stock behind more than half the return, since a single bet that paid off says little about a manager. Funds need four quarters of holdings priced at least 70% by value. When we tested it over 2024 to 2025, a fund's rank one year did not predict its rank the next (rank correlation −0.016), so a high rank is a record, not a forecast. <a class="hf-inline-link" href="/methodology/#rankings">How this works</a>.</p>` }));
 
   // About
   write('methodology/index.html', layout({ title: 'How this works', path: '/methodology/', current: '/methodology/', description: 'Where the numbers come from and what they leave out.', body: `
@@ -259,7 +272,7 @@ export function renderSite({ out, period, prior, partial, priorFilers, funds, st
   write('robots.txt', `User-agent: *\nAllow: /\nSitemap: ${SITE}/sitemap.xml\n`);
   mkdirSync(path.join(out, 'assets'), { recursive: true });
   const site = path.join(root, '..', 'site');
-  for (const file of ['site.css', 'search.js', 'price.js', 'holdings.js']) copyFileSync(path.join(site, file), path.join(out, 'assets', file));
+  for (const file of ['site.css', 'search.js', 'price.js', 'holdings.js', 'sort.js']) copyFileSync(path.join(site, file), path.join(out, 'assets', file));
   cpSync(path.join(site, 'brand'), path.join(out, 'brand'), { recursive: true });
   for (const file of ['favicon.svg', 'favicon.ico', 'apple-touch-icon.png', 'icon-512.png']) copyFileSync(path.join(site, file), path.join(out, file));
   writeFileSync(path.join(out, '.nojekyll'), '');
@@ -331,7 +344,7 @@ function layout({ title, description, path: pagePath, current, body }) {
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${esc(full)}</title><meta name="description" content="${esc(description)}"><link rel="canonical" href="${SITE}${pagePath}">
 <meta property="og:title" content="${esc(full)}"><meta property="og:description" content="${esc(description)}"><meta property="og:image" content="${SITE}/icon-512.png"><meta name="twitter:card" content="summary">
-<link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="/apple-touch-icon.png"><link rel="stylesheet" href="/assets/site.css"><meta name="hn-base" content="/"><script src="/assets/search.js" defer></script><script src="/assets/price.js" defer></script><script src="/assets/holdings.js" defer></script><noscript><style>.hn-x{display:table-row}.hn-more{display:none}</style></noscript></head>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="/apple-touch-icon.png"><link rel="stylesheet" href="/assets/site.css"><meta name="hn-base" content="/"><script src="/assets/search.js" defer></script><script src="/assets/price.js" defer></script><script src="/assets/holdings.js" defer></script><script src="/assets/sort.js" defer></script><noscript><style>.hn-x{display:table-row}.hn-more{display:none}</style></noscript></head>
 <body><div class="hf-app"><header class="hf-header"><a href="/" class="hf-brand" aria-label="Heavy Numbers home"><img class="hf-brand-lockup" src="/brand/heavy-numbers-lockup-light.svg" alt="Heavy Numbers" width="547" height="100"></a>
 <div class="hs-search"><input type="search" placeholder="Search funds and stocks" aria-label="Search funds and stocks" autocomplete="off"><div class="hs-results" role="listbox" hidden></div></div>
 <nav class="hf-desktop-nav" aria-label="Main navigation">${nav}</nav>

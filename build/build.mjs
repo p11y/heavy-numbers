@@ -80,12 +80,21 @@ const SPY = securities.findIndex(s => s.cusip === '78462F103');
 const quarterReturns = new Map(), benchmark = new Map(); // cik → Map period → return; period → return
 // What each position added to that return, for books of up to 150 positions (the concentrated range).
 const quarterContributions = new Map(); // cik → Map period → Map idx → share of the return
+// When each of those books first showed a position, and at what price: the earliest quarter in the data means
+// "held at least since then".
+const firstSeen = new Map(); // cik → Map idx → { period, price }
 const fundHistory = new Map(), stockHistory = new Map(); // cik | idx → Map period → summary
 const remember = (map, key, p, value) => { if (!map.has(key)) map.set(key, new Map()); map.get(key).set(p, value); };
 for (const p of [...periods].reverse()) {
   const built = buildBooks(reportsOf(p), rows);
   for (const r of reportsOf(p).values()) for (const accession of r.accessions) rows.delete(accession);
   books.set(p, built.books); prices.set(p, built.price);
+  for (const [cik, book] of built.books) {
+    if (book.positions.size > CONCENTRATED.maxPositions) continue;
+    let seen = firstSeen.get(cik);
+    if (!seen) firstSeen.set(cik, seen = new Map());
+    for (const [i, held] of book.positions) if (!seen.has(i)) seen.set(i, { period: p, price: built.price.get(i) ?? (held.shares > 0 ? held.value / held.shares : null) });
+  }
   const before = books.get(priorQuarter(p));
   if (before) {
     // A filer whose holdings moved to a successor in this quarter (data/manager-continuity.json): the
@@ -163,7 +172,8 @@ function contributorsOf(cik) {
     for (const [i, share] of quarterContributions.get(cik)?.get(q) ?? []) total.set(i, (total.get(i) ?? 0) + growth * share);
     growth *= 1 + (quarterReturns.get(cik)?.get(q) ?? 0);
   }
-  return [...total].map(([i, share]) => ({ i, share })).sort((a, b) => b.share - a.share);
+  const seen = firstSeen.get(cik), now = prices.get(period);
+  return [...total].map(([i, share]) => ({ i, share, first: seen?.get(i) ?? null, price: now.get(i) ?? null })).sort((a, b) => b.share - a.share);
 }
 const splitCache = new Map();
 function splitsOf(p) {
