@@ -79,6 +79,8 @@ const books = new Map(), prices = new Map(), successorOf = new Map();
 // (SPY's price) for the same quarters.
 const SPY = securities.findIndex(s => s.cusip === '78462F103');
 const quarterReturns = new Map(), benchmark = new Map(); // cik → Map period → return; period → return
+// What each position added to that return, for books of up to 150 positions (the concentrated range).
+const quarterContributions = new Map(); // cik → Map period → Map idx → share of the return
 const fundHistory = new Map(), stockHistory = new Map(); // cik | idx → Map period → summary
 const remember = (map, key, p, value) => { if (!map.has(key)) map.set(key, new Map()); map.get(key).set(p, value); };
 for (const p of [...periods].reverse()) {
@@ -109,8 +111,9 @@ for (const p of [...periods].reverse()) {
   if (before) {
     const priceBefore = prices.get(priorQuarter(p));
     for (const [cik, book] of before) {
-      const r = holdingsReturn(book, built.books.get(cik), priceBefore, built.price);
-      if (r != null) remember(quarterReturns, cik, p, r);
+      const parts = book.positions.size <= CONCENTRATED.maxPositions ? new Map() : null;
+      const r = holdingsReturn(book, built.books.get(cik), priceBefore, built.price, parts);
+      if (r != null) { remember(quarterReturns, cik, p, r); if (parts) remember(quarterContributions, cik, p, parts); }
     }
     if (priceBefore.has(SPY) && built.price.has(SPY)) benchmark.set(p, built.price.get(SPY) / priceBefore.get(SPY) - 1);
   }
@@ -149,6 +152,20 @@ function compareBooks(cik, p) {
   sold.sort((a, b) => b.value - a.value);
   return { book, prev, pairs, holdings, sold, hasPrior };
 }
+/**
+ * The positions behind a fund's last four quarters of return, largest first: [{ i, share }], where share is in
+ * points of the twelve-month return. A quarter's contributions are scaled by the fund's growth before it, so
+ * the shares add up to the twelve-month return.
+ */
+function contributorsOf(cik) {
+  const total = new Map();
+  let growth = 1;
+  for (const q of periods.slice(0, 4).reverse()) {
+    for (const [i, share] of quarterContributions.get(cik)?.get(q) ?? []) total.set(i, (total.get(i) ?? 0) + growth * share);
+    growth *= 1 + (quarterReturns.get(cik)?.get(q) ?? 0);
+  }
+  return [...total].map(([i, share]) => ({ i, share })).sort((a, b) => b.share - a.share);
+}
 const splitCache = new Map();
 function splitsOf(p) {
   if (!splitCache.has(p)) {
@@ -169,7 +186,8 @@ if (partial) for (const cik of books.get(prior).keys()) if (!books.get(period).h
 for (const [cik, p] of latest) {
   const { book, prev, pairs, holdings, sold, hasPrior } = compareBooks(cik, p);
   const returns = periods.slice(0, 4).map(q => quarterReturns.get(cik)?.get(q) ?? null);
-  funds.push({ cik, period: p, current: p === period, returns, yearReturn: returns.every(r => r != null) ? returns.reduce((n, r) => n * (1 + r), 1) - 1 : null, pairs, predecessor: successorOf.get(`${p}|${cik}`) ?? null, name: titleCase(book.report.name), city: book.report.city, report: book.report, total: book.total, priorTotal: prev?.total ?? null, unitFixed: book.unitFixed, holdings, sold, concentrated: isConcentrated(book), hasPrior, history: periods.slice(0, 4).map((q, n) => [q, fundHistory.get(cik)?.get(q) ? { ...fundHistory.get(cik).get(q), ret: returns[n] } : null]) });
+  const yearReturn = returns.every(r => r != null) ? returns.reduce((n, r) => n * (1 + r), 1) - 1 : null;
+  funds.push({ cik, period: p, current: p === period, returns, yearReturn, contributors: yearReturn == null ? [] : contributorsOf(cik), pairs, predecessor: successorOf.get(`${p}|${cik}`) ?? null, name: titleCase(book.report.name), city: book.report.city, report: book.report, total: book.total, priorTotal: prev?.total ?? null, unitFixed: book.unitFixed, holdings, sold, concentrated: isConcentrated(book), hasPrior, history: periods.slice(0, 4).map((q, n) => [q, fundHistory.get(cik)?.get(q) ? { ...fundHistory.get(cik).get(q), ret: returns[n] } : null]) });
 }
 // Addresses: a reviewed filer keeps its readable id; others go by name, with the CIK when names collide.
 const bySlug = new Map();
