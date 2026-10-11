@@ -41,7 +41,3 @@ section{scroll-margin-top:20px}
 .hn-more{display:block;width:100%;margin:0;padding:11px 0;background:none;border:0;border-bottom:1px solid var(--line);font:11px 'IBM Plex Mono',monospace;color:var(--text-secondary);text-align:left}.hn-more:hover{color:var(--text-primary);background:var(--raised)}
 .hn-group .hn-more{margin-left:18px;width:calc(100% - 18px);margin-bottom:14px}.hn-group .hn-clip .hf-tablewrap{margin-bottom:0}
 @media(max-width:760px){.hn-group .hn-more{margin-left:0;width:100%}}
-/* Bottleneck board: backlog bars beside sales bars, and five quarters of backlog in small bars. */
-.hn-bar-a{background:var(--data-1)}.hn-bar-b{background:var(--data-3)}
-.hn-spark{display:inline-flex;align-items:flex-end;gap:2px;height:16px;margin-right:10px;vertical-align:middle}.hn-spark i{display:block;width:4px;background:var(--data-3)}.hn-spark i:last-child{background:var(--data-1)}
-.hn-others{font-size:12px;color:var(--text-body);line-height:1.9;margin:12px 0 0;max-width:1100px}.hn-others>span:first-child{color:var(--text-tertiary);margin-right:4px}

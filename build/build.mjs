@@ -9,8 +9,7 @@ import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
-import { listDataSets, fetchDataSet, fetchTickers, fillSic, fetchCompanyFacts, readJson } from './sec.mjs';
-import { buildBoard } from './bottlenecks.mjs';
+import { listDataSets, fetchDataSet, fetchTickers, fillSic, readJson } from './sec.mjs';
 import { listLiveFilings, readLiveFilings } from './live.mjs';
 import { readFilings, selectReports, latestQuarter, priorQuarter, readHoldings, buildBooks, pairPositions, detectSplits, changeOf, holdingsReturn, CONCENTRATED, BIG_BET } from './model.mjs';
 import { selectReferenceEntry } from './reference.mjs';
@@ -280,14 +279,10 @@ for (const fund of current) {
 for (const stock of byTicker.values()) if (stock.concentratedHolders) sectorOf.get(stock.sector).stocks.push(stock);
 for (const s of sectors) s.stocks.sort((a, b) => b.concentratedHolders - a.concentratedHolders || b.value - a.value);
 
-// Bottleneck board: backlog and sales from each listed company's XBRL facts.
-const board = await buildBoard({ tickers, getFacts: fetchCompanyFacts });
-log(`bottleneck board: ${board.layers.reduce((n, l) => n + l.rows.length, 0)} companies`);
-
 // 6. Pages
 rmSync(args.out, { recursive: true, force: true });
 mkdirSync(args.out, { recursive: true });
-const summary = renderSite({ out: args.out, period, prior, partial, priorFilers: reportsOf(prior).size, funds, stocks: [...byTicker.values()], sectors, securities, builtAt: new Date().toISOString(), dataSets: sets.map(s => s.file), board, benchmark: periods.slice(0, 4).map(q => benchmark.get(q) ?? null) });
+const summary = renderSite({ out: args.out, period, prior, partial, priorFilers: reportsOf(prior).size, funds, stocks: [...byTicker.values()], sectors, securities, builtAt: new Date().toISOString(), dataSets: sets.map(s => s.file), benchmark: periods.slice(0, 4).map(q => benchmark.get(q) ?? null) });
 log(`wrote ${summary.pages} pages, ${(summary.bytes / 2 ** 20).toFixed(0)} MB, to ${args.out}`);
 
 // --- helpers
