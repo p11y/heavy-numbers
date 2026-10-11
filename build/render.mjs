@@ -60,6 +60,43 @@ export function renderSite({ out, period, prior, partial, priorFilers, funds, st
   };
   const stockLink = s => `<span class="hf-ticker">${esc(s.security.ticker)}</span><a class="hf-name" href="/stocks/${s.slug}/">${esc(s.security.label)}</a>`;
   const sectorName = new Map(sectors.map(s => [s.key, s.name]));
+  const holdingRow = (h, n) => `<tr${tv(stockOf.get(h.i))}${n == null ? '' : ` data-n="${n}"`}><th>${stockCell(h.i)}</th><td class="hf-numeric">${pct(h.weight)}</td><td class="hf-numeric">${money(h.value)}</td><td class="hf-numeric hf-optional">${int(h.shares)}</td><td>${change(h)}</td></tr>`;
+  /** A holding's group on a fund page: its stock's sector, funds and ETFs together, else Other. */
+  const groupOf = h => {
+    const s = stockOf.get(h.i);
+    if (s?.sector && s.sector !== 'other') return [s.sector, sectorName.get(s.sector)];
+    return ['etp', 'fund'].includes(securities[h.i].kind) ? ['funds', 'Funds & ETFs'] : ['other', 'Other'];
+  };
+  /** A fund's holdings by sector (largest sector first, each folded under a summary row), or largest first. */
+  const holdingsSection = (f, P) => {
+    const columns = [['Stock'], ['% of fund', 1], ['Value', 1], ['Shares', 1, 1], [`Since ${P}`]];
+    const shown = f.holdings.slice(0, FUND_ROWS);
+    const groups = new Map();
+    for (const h of f.holdings) {
+      const [key, name] = groupOf(h);
+      if (!groups.has(key)) groups.set(key, { key, name, weight: 0, count: 0, opened: 0, rows: [] });
+      const g = groups.get(key);
+      g.weight += h.weight; g.count++;
+      if (h.change === 'new') g.opened++;
+    }
+    for (const h of shown) groups.get(groupOf(h)[0]).rows.push(h);
+    const rank = new Map(shown.map((h, n) => [h, n]));
+    const note = `Share positions at ${date(f.period)}`;
+    if (groups.size < 2) return section('Holdings', note, table(columns, shown.map(holdingRow)), 'holdings');
+    const sorted = [...groups.values()].sort((a, b) => (a.key === 'other') - (b.key === 'other') || b.weight - a.weight);
+    const most = Math.max(...sorted.map(g => g.weight));
+    const strip = `<div class="hn-strip" aria-hidden="true">${sorted.map((g, n) => `<a href="#in-${g.key}" style="flex:${g.weight.toFixed(4)}" class="hn-seg${n % 2}" title="${esc(g.name)} ${pct(g.weight)}"></a>`).join('')}</div>`;
+    const tickers = g => g.rows.slice(0, 3).map(h => securities[h.i].ticker).filter(Boolean).map(t => `<span class="hf-ticker">${esc(t)}</span>`).join('');
+    const bySector = sorted.map((g, n) => `<details class="hn-group" id="in-${g.key}"${n === 0 ? ' open' : ''}><summary>
+      <span class="hn-gname">${esc(g.name)}</span>
+      <span class="hn-gpct"><span class="hn-bar" style="width:${Math.max(2, Math.round(80 * g.weight / most))}px"></span>${pct(g.weight)}</span>
+      <span class="hn-gcount">${int(g.count)} ${g.count === 1 ? 'position' : 'positions'}${g.opened && f.hasPrior ? ` · ${int(g.opened)} new` : ''}</span>
+      <span class="hn-gtop">${tickers(g)}</span></summary>
+      ${g.rows.length ? table(columns, g.rows.map(h => holdingRow(h, rank.get(h)))) : ''}${g.count > g.rows.length ? `<p class="hn-gmore">${int(g.count - g.rows.length)} smaller ${g.count - g.rows.length === 1 ? 'position' : 'positions'} not shown.</p>` : ''}</details>`).join('');
+    // holdings.js builds the largest-first table from these rows, so the page carries each row once.
+    return `<section id="holdings" class="hn-views"><div class="hf-tabletop"><h2>Holdings</h2><div class="hn-switch" hidden><button type="button" aria-pressed="true" data-view="sector">By sector</button><button type="button" aria-pressed="false" data-view="size">Largest first</button></div></div>
+      <div class="hn-bysector">${strip}${bySector}</div><div class="hn-flat" hidden></div></section>`;
+  };
   const cur = funds.filter(f => f.current);
   const filed = cur.map(f => f.report.filedAt).sort();
   const concentrated = cur.filter(f => f.concentrated);
@@ -108,11 +145,10 @@ export function renderSite({ out, period, prior, partial, priorFilers, funds, st
       <a class="hf-back" href="/funds/">← Funds</a>
       ${head(`Fund · CIK ${Number(f.cik)}${f.concentrated ? ' · concentrated' : ''}`, f.name, date(period), `Filed ${date(f.report.filedAt)} · <a class="hf-inline-link" href="${secFiling(f.report)}" rel="noreferrer">SEC filing ↗</a>`, 'hf-detailhead')}
       ${stats([['Reported value', money(f.total) + (f.priorTotal ? ` <small class="hf-muted">${signed(f.total / f.priorTotal - 1, 0)}%</small>` : '')], ['Positions', int(f.holdings.length)], ['Opened · sold out', f.hasPrior ? `${int(opened)} · ${int(f.sold.length)}` : '—']])}
+      ${holdingsSection(f, P)}
+      ${f.sold.length ? `<details class="hn-fold"><summary><h2>Sold out <span>${int(f.sold.length)}</span></h2><span>Held at ${esc(date(prior))}, gone at ${esc(date(period))}</span></summary>${table([['Stock'], [`% of fund in ${P}`, 1], [`Value in ${P}`, 1]],
+        f.sold.slice(0, SOLD_ROWS).map(s => `<tr${tv(stockOf.get(s.i))}><th>${stockCell(s.i)}${s.gone ? '<span class="hf-subtext">Merged away or delisted</span>' : ''}</th><td class="hf-numeric">${pct(s.weight)}</td><td class="hf-numeric">${money(s.value)}</td></tr>`))}</details>` : ''}
       ${historySection(f.history, [['Reported value', h => money(h.value), h => h.value], ['Positions', h => int(h.positions)], ['Opened', h => h.opened == null ? '—' : int(h.opened)], ['Sold out', h => h.sold == null ? '—' : int(h.sold)]])}
-      ${section('Holdings', `Share positions at ${date(period)}`, table([['Stock'], ['% of fund', 1], ['Value', 1], ['Shares', 1, 1], [`Since ${P}`]],
-        f.holdings.slice(0, FUND_ROWS).map(h => `<tr${tv(stockOf.get(h.i))}><th>${stockCell(h.i)}</th><td class="hf-numeric">${pct(h.weight)}</td><td class="hf-numeric">${money(h.value)}</td><td class="hf-numeric hf-optional">${int(h.shares)}</td><td>${change(h)}</td></tr>`)))}
-      ${f.sold.length ? section('Sold out', `Held at ${date(prior)}, gone at ${date(period)}`, table([['Stock'], [`% of fund in ${P}`, 1], [`Value in ${P}`, 1]],
-        f.sold.slice(0, SOLD_ROWS).map(s => `<tr${tv(stockOf.get(s.i))}><th>${stockCell(s.i)}${s.gone ? '<span class="hf-subtext">Merged away or delisted</span>' : ''}</th><td class="hf-numeric">${pct(s.weight)}</td><td class="hf-numeric">${money(s.value)}</td></tr>`))) : ''}
       ${notes.map(n => `<p class="hf-caption">${esc(n)}</p>`).join('')}` }));
   }
 
@@ -187,7 +223,7 @@ export function renderSite({ out, period, prior, partial, priorFilers, funds, st
   write('robots.txt', `User-agent: *\nAllow: /\nSitemap: ${SITE}/sitemap.xml\n`);
   mkdirSync(path.join(out, 'assets'), { recursive: true });
   const site = path.join(root, '..', 'site');
-  for (const file of ['site.css', 'search.js', 'price.js']) copyFileSync(path.join(site, file), path.join(out, 'assets', file));
+  for (const file of ['site.css', 'search.js', 'price.js', 'holdings.js']) copyFileSync(path.join(site, file), path.join(out, 'assets', file));
   cpSync(path.join(site, 'brand'), path.join(out, 'brand'), { recursive: true });
   for (const file of ['favicon.svg', 'favicon.ico', 'apple-touch-icon.png', 'icon-512.png']) copyFileSync(path.join(site, file), path.join(out, file));
   writeFileSync(path.join(out, '.nojekyll'), '');
@@ -253,7 +289,7 @@ function layout({ title, description, path: pagePath, current, body }) {
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${esc(full)}</title><meta name="description" content="${esc(description)}"><link rel="canonical" href="${SITE}${pagePath}">
 <meta property="og:title" content="${esc(full)}"><meta property="og:description" content="${esc(description)}"><meta property="og:image" content="${SITE}/icon-512.png"><meta name="twitter:card" content="summary">
-<link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="/apple-touch-icon.png"><link rel="stylesheet" href="/assets/site.css"><meta name="hn-base" content="/"><script src="/assets/search.js" defer></script><script src="/assets/price.js" defer></script></head>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="/apple-touch-icon.png"><link rel="stylesheet" href="/assets/site.css"><meta name="hn-base" content="/"><script src="/assets/search.js" defer></script><script src="/assets/price.js" defer></script><script src="/assets/holdings.js" defer></script></head>
 <body><div class="hf-app"><header class="hf-header"><a href="/" class="hf-brand" aria-label="Heavy Numbers home"><img class="hf-brand-lockup" src="/brand/heavy-numbers-lockup-light.svg" alt="Heavy Numbers" width="547" height="100"></a>
 <div class="hs-search"><input type="search" placeholder="Search funds and stocks" aria-label="Search funds and stocks" autocomplete="off"><div class="hs-results" role="listbox" hidden></div></div>
 <nav class="hf-desktop-nav" aria-label="Main navigation">${nav}</nav>
