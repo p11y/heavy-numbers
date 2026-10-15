@@ -1,0 +1,508 @@
+<style>
+.bn{
+  color-scheme:dark;
+  --ink:#111111;--sunken:#161514;--raised:#1a1917;--overlay:#23211f;
+  --line-subtle:#272623;--line:#34332f;--line-strong:#474541;
+  --text-primary:#f3f0e9;--text-body:#d9d5cf;--text-secondary:#aba7a0;--text-tertiary:#8c8982;--text-faint:#63605b;
+  --falling:#3987e5;   
+  --rising:#d95926;    
+  --falling-2:#86b6ef; 
+  --sans:'DM Sans',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --mono:'IBM Plex Mono',ui-monospace,'SFMono-Regular',Menlo,monospace;
+}
+.bn *{box-sizing:border-box}
+.bn{margin:0;background:var(--ink);color:var(--text-primary);font:15px/1.6 var(--sans)}
+.bn h1,.bn h2,.bn h3,.bn p{margin:0}
+.bn a{color:inherit;text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--text-faint)}
+.bn a:hover{text-decoration-color:var(--text-body)}
+.bn .wrap{max-width:1080px;margin:0 auto;padding-block:28px 60px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.bn .demo{font:11px var(--mono);color:var(--text-secondary);border:1px solid var(--line-strong);display:inline-block;padding:3px 8px;letter-spacing:.4px}
+.bn .eyebrow{font:11px var(--mono);color:var(--text-tertiary);text-transform:uppercase;letter-spacing:1.2px}
+.bn header.page{display:grid;gap:14px;padding:22px 0 30px;border-bottom:1px solid var(--line)}
+.bn header.page h1{font-size:clamp(28px,4.4vw,44px);font-weight:500;letter-spacing:-1.3px;line-height:1.1;text-wrap:balance;max-width:820px}
+.bn header.page h1 .f{color:var(--falling)}
+.bn header.page h1 .r{color:var(--rising)}
+.bn .lede{color:var(--text-body);max-width:68ch;font-size:16px}
+.bn .meta{font:11px var(--mono);color:var(--text-tertiary)}
+.bn section{padding:40px 0 8px;border-bottom:1px solid var(--line-subtle)}
+.bn section>h2{font-size:22px;font-weight:500;letter-spacing:-.4px;text-wrap:balance;margin:6px 0 10px}
+.bn section>p.sub{color:var(--text-body);max-width:68ch;margin-bottom:20px}
+.bn .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));border-block:1px solid var(--line);margin:4px 0 22px}
+.bn .stats>div{padding:16px 18px 16px 0;display:grid;gap:6px;align-content:start}
+.bn .stats>div+div{padding-left:18px;border-left:1px solid var(--line)}
+.bn .stats strong{font:500 26px var(--mono);letter-spacing:-.8px;font-variant-numeric:tabular-nums}
+.bn .stats strong.f{color:var(--falling)}
+.bn .stats strong.r{color:var(--rising)}
+.bn .stats span{font-size:12px;color:var(--text-tertiary);line-height:1.45}
+.bn .chart{position:relative;width:100%}
+.bn .chart svg{display:block;width:100%;height:auto;overflow:visible}
+.bn .chart text{font-family:var(--mono);font-size:11px;fill:var(--text-tertiary)}
+.bn .chart .lbl{fill:var(--text-body);font-family:var(--sans);font-size:12px}
+.bn .chart .grid{stroke:var(--line-subtle);stroke-width:1}
+.bn .chart .axis{stroke:var(--line-strong);stroke-width:1}
+.bn .tip{position:absolute;pointer-events:none;background:var(--overlay);border:1px solid var(--line-strong);padding:8px 10px;font:12px/1.5 var(--sans);color:var(--text-body);max-width:260px;z-index:5}
+.bn .tip b{color:var(--text-primary);font-weight:500}
+.bn .tip .m{font-family:var(--mono);font-size:11px;color:var(--text-secondary)}
+.bn .legend{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:12px;color:var(--text-secondary);margin:4px 0 10px}
+.bn .legend i{display:inline-block;width:14px;height:2px;vertical-align:middle;margin-right:7px}
+.bn .note{font-size:12px;color:var(--text-tertiary);max-width:80ch;margin:12px 0 18px;line-height:1.6}
+.bn .tablewrap{overflow-x:auto;border-top:1px solid var(--line-strong);margin-top:8px}
+.bn table.map{border-collapse:collapse;width:100%;min-width:860px;table-layout:auto}
+.bn table.map tbody th{min-width:200px}
+.bn table.map thead th{font:11px var(--mono);text-transform:uppercase;letter-spacing:.4px;color:var(--text-tertiary);text-align:left;padding:12px 12px;background:var(--sunken);border-bottom:1px solid var(--line);white-space:nowrap}
+.bn table.map td,.bn table.map tbody th{padding:16px 12px;border-bottom:1px solid var(--line);vertical-align:top;text-align:left;font-weight:400}
+.bn table.map th:first-child,.bn table.map td:first-child,.bn table.map tbody th{padding-left:0}
+.bn table.map tbody tr{cursor:pointer}
+.bn table.map tbody tr:hover{background:var(--raised)}
+.bn table.map tbody tr[aria-expanded="true"]{background:var(--raised)}
+.bn .lname{font-size:15px;font-weight:500;color:var(--text-primary);display:block}
+.bn .lsub{font-size:12px;color:var(--text-tertiary);display:block;margin-top:2px}
+.bn .tick{display:inline-block;font:10px var(--mono);background:var(--overlay);border:1px solid var(--line);padding:1px 4px;margin:6px 4px 0 0;color:var(--text-body)}
+.bn .num{font:13px var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+.bn .num small{display:block;font-size:10px;color:var(--text-tertiary);margin-top:3px}
+.bn .up{color:var(--rising)}
+.bn .down{color:var(--falling)}
+.bn .pill{display:inline-block;font:11px/1.4 var(--mono);border:1px solid var(--line-strong);padding:3px 7px;color:var(--text-primary)}
+.bn .pill.hot{border-color:var(--rising);color:var(--text-primary)}
+.bn .crowdbar{display:block;height:6px;background:var(--line);margin-top:6px;position:relative;width:110px}
+.bn .crowdbar span{position:absolute;top:0;bottom:0;left:0;background:var(--text-secondary)}
+.bn .crowdbar em{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--text-faint)}
+.bn tr.detail td{padding:0 0 18px;background:var(--raised);cursor:default}
+.bn tr.detail[hidden]{display:none}
+.bn .detailbox{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:20px;padding:4px 12px 0}
+.bn .detailbox p{color:var(--text-body);font-size:13px;line-height:1.65}
+.bn .detailbox table{border-collapse:collapse;font:12px var(--mono);width:100%}
+.bn .detailbox td{padding:4px 0;border-bottom:1px solid var(--line-subtle);color:var(--text-body)}
+.bn .detailbox td:last-child{text-align:right;color:var(--text-secondary)}
+.bn .cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:24px}
+.bn .cols h3{font-size:14px;font-weight:500;margin-bottom:8px}
+.bn .cols ul{margin:0;padding-left:18px;color:var(--text-body);font-size:13px;display:grid;gap:6px}
+.bn .sources{font-size:12px;color:var(--text-tertiary);display:grid;gap:4px;margin-top:10px}
+@media(max-width:700px){.bn .detailbox{grid-template-columns:1fr}
+.bn .stats>div+div{padding-left:0;border-left:0;border-top:1px solid var(--line)}}
+@media(max-width:700px){.bn .chart{overflow-x:auto;overflow-y:hidden}
+.bn .chart svg{min-width:660px}
+.bn .chart::after{content:'← Swipe for the rest of the chart';display:block;font:11px var(--mono);color:var(--text-faint);margin-top:6px;position:sticky;left:0}}
+@media(prefers-reduced-motion:reduce){.bn *{transition:none!important}}
+.bn :focus-visible{outline:2px solid var(--text-body);outline-offset:3px}
+.bn .chain{display:grid;border-top:1px solid var(--line-strong);margin-top:6px}
+.bn .crow{display:grid;grid-template-columns:minmax(150px,1fr) minmax(0,1.3fr) minmax(0,1.3fr) 104px;gap:14px;padding:14px 0;border-bottom:1px solid var(--line);align-items:start}
+.bn .crow.head{font:11px var(--mono);text-transform:uppercase;letter-spacing:.4px;color:var(--text-tertiary);padding:10px 0}
+.bn .crow b{font-weight:500;font-size:14px;display:block}
+.bn .crow .u{font-size:12px;color:var(--text-tertiary)}
+.bn .nr{font:12px var(--mono);font-variant-numeric:tabular-nums;color:var(--text-body)}
+.bn .nrbar{display:grid;gap:3px;margin-top:8px}
+.bn .nrbar span{display:block;height:5px}
+.bn .nrbar .need{background:var(--rising)}
+.bn .nrbar .room{background:var(--falling)}
+.bn .nr .r{color:var(--rising)}
+.bn .nr .f{color:var(--falling)}
+.bn .hiodds{color:var(--rising)}
+.bn .paid{border-top:1px solid var(--line-strong)}
+.bn .pgroup{font:11px var(--mono);text-transform:uppercase;letter-spacing:.4px;color:var(--text-tertiary);padding:16px 0 6px}
+.bn .prow{display:grid;grid-template-columns:minmax(170px,1.1fr) minmax(0,2fr) 92px;gap:14px;align-items:center;padding:9px 0;border-bottom:1px solid var(--line-subtle)}
+.bn .prow b{font-weight:500;font-size:14px}
+.bn .prow .u{display:block;font-size:12px;color:var(--text-tertiary)}
+.bn .ptrack{position:relative;height:18px}
+.bn .ptrack .z{position:absolute;top:-4px;bottom:-4px;width:1px;background:var(--line-strong)}
+.bn .ptrack .spy{position:absolute;top:-4px;bottom:-4px;width:0;border-left:1px dashed var(--text-faint)}
+.bn .ptrack .bar{position:absolute;top:3px;height:12px}
+.bn .pval{font:500 15px var(--mono);text-align:right;padding-right:4px}
+.bn .pval small{display:block;font:11px var(--mono);color:var(--text-tertiary)}
+.bn .paxis{position:relative;height:18px;font:10px var(--mono);color:var(--text-faint)}
+.bn .paxis span{position:absolute;transform:translateX(-50%);white-space:nowrap}
+.bn .credit{font-size:13px;color:var(--text-body);margin:22px 0 4px;max-width:75ch}
+@media(max-width:700px){.bn .prow{grid-template-columns:1fr 76px}
+.bn .prow .ptrack{grid-column:1/-1;grid-row:2}
+.bn .paxis{display:none}}
+.bn .yl{display:none;font:10px var(--mono);text-transform:uppercase;letter-spacing:.4px;color:var(--text-tertiary);margin-bottom:4px}
+.bn .oddsbig{font:500 20px var(--mono);text-align:right;padding-right:4px}
+.bn .oddsbig .op{display:block}
+.bn .oddsbig small{display:block;font:10px var(--mono);color:var(--text-tertiary);letter-spacing:0}
+.bn details.assume{margin:18px 0 10px;border-top:1px solid var(--line)}
+.bn details.assume summary{cursor:pointer;padding:12px 0;font-size:13px;color:var(--text-secondary)}
+.bn table.atab{border-collapse:collapse;width:100%;font-size:12px;min-width:560px}
+.bn table.atab td{padding:7px 10px 7px 0;border-bottom:1px solid var(--line-subtle);color:var(--text-body);vertical-align:top}
+.bn table.atab td:nth-child(2){font-family:var(--mono);white-space:nowrap;color:var(--text-primary)}
+.bn table.atab td:last-child{color:var(--text-tertiary)}
+.bn .bstat{font:11px var(--mono);color:var(--text-primary);display:block}
+.bn .bodds{font:12px var(--mono);color:var(--text-secondary);display:block;margin-top:4px}
+.bn .bev{font-size:11px;color:var(--text-tertiary);display:block;margin-top:4px;max-width:200px;line-height:1.45}
+@media(max-width:700px){.bn .crow{grid-template-columns:1fr 1fr;}
+.bn .crow .c1{grid-column:1/-1}
+.bn .crow.head{display:none}
+.bn .yl{display:block}
+.bn .oddsbig{text-align:left;grid-column:1/-1;display:flex;gap:22px}
+.bn .oddsbig small{display:inline;margin-left:4px}}
+.bn{background:none}
+.bn .wrap{max-width:1080px;margin:0;padding:0 0 10px}
+.bn header.page{padding-top:30px}
+</style>
+<div class="bn">
+<div class="wrap">
+<header class="page">
+  <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap"><span class="demo">Analysis by Claude</span><span class="eyebrow">Bottleneck map</span></div>
+  <h1>AI is getting <span class="f">cheaper</span>. The things it runs on are getting <span class="r">scarcer</span>.</h1>
+  <p class="lede">When something becomes abundant, the money moves to whatever is still scarce. This page tracks both sides: the falling price of machine intelligence, and the prices of the physical inputs it needs. Then it checks which scarce inputs the funds have already noticed.</p>
+  <p class="meta" id="asof"></p>
+</header>
+
+<section id="falling">
+  <div class="eyebrow">1 · The falling line</div>
+  <h2>The same capability costs a thousand times less than in 2023, and the fall is speeding up</h2>
+  <p class="sub">Each line follows one fixed level of capability and shows the cheapest model that reached it, priced per million tokens. Capability is measured on Epoch AI's Capabilities Index, which combines many benchmarks into one score.</p>
+  <div class="stats" id="aistats"></div>
+  <div class="legend" id="ailegend"></div>
+  <div class="chart" id="aichart"></div>
+  <p class="note">Price is a blend of 3 input tokens to 1 output token. Prices to early 2025 are launch prices from Epoch AI; later ones are today's cheapest listed price on OpenRouter, which for open models is a third-party host. The GPT-4 line has not fallen since August 2025, which suggests a floor near the cost of serving a small model. The best models today (Claude Opus 5.5 at $8, Gemini 4 Argon at $4) cost less than GPT-4 did at launch while scoring 41 points higher.</p>
+</section>
+
+<section id="spending">
+  <div class="eyebrow">2 · Cheaper means more, not less</div>
+  <h2>Each unit got cheaper, and total spending went up twelvefold</h2>
+  <p class="sub">When a useful thing gets cheaper, people tend to use so much more of it that total spending rises. That is happening here. The five biggest buyers of AI capacity now spend more on buildings and equipment in one quarter than they did in all of 2019, two and a half times over.</p>
+  <div class="stats" id="spendstats"></div>
+  <div class="chart" id="capexchart"></div>
+  <p class="note">Cash paid for property and equipment each calendar quarter, from each company's 10-Q and 10-K as filed in SEC XBRL: Microsoft, Alphabet, Amazon, Meta and Oracle. Oracle's fiscal quarters end a month earlier and are placed in the nearest calendar quarter. Finance leases are not included, so the true figure is higher.</p>
+</section>
+
+<section id="scaling">
+  <div class="eyebrow">3 · Following the scaling trend</div>
+  <h2 id="scaleh">If AI keeps its trend, US AI power has to reach about 119 GW by the end of 2028. The grid can support about 61</h2>
+  <p class="sub">Installed AI compute grew 2.6 times in the last year, and frontier training compute has grown 4 to 5 times a year for a decade. Chips get about 1.4 times more efficient each year, so the power AI needs grows about 1.9 times a year. Following that line forward shows what the physical world has to supply, and where it cannot.</p>
+  <div class="stats" id="scalestats"></div>
+  <div class="legend" id="scalelegend"></div>
+  <div class="chart" id="scalechart"></div>
+  <p class="note">History is the power of AI chips sold since 2022 (Epoch AI) times 1.75 for servers, networking and cooling, times the US share of 77.5%. The trend band and the supply band each come from 20,000 runs over the ranges in the assumptions table below; lines are medians and bands run from the 10th to the 90th percentile. Supply counts the gas, batteries, solar, wind and reactor restarts already planned in EIA's generator inventory, minus retirements and other load growth. The dots are the 77 US campuses Epoch AI tracks, which are the biggest AI sites but not all AI capacity.</p>
+  <div class="chain" id="chain"></div>
+  <details class="assume"><summary>Assumptions behind the odds</summary><div class="tablewrap" style="border:0"><table class="atab" id="atab"></table></div></details>
+</section>
+
+<section id="paid">
+  <div class="eyebrow">4 · Who gets paid</div>
+  <h2>When the grid is the limit, the money has gone to ways around it</h2>
+  <p class="sub">If the grid can carry only about half the power AI wants, the scarce thing is power that does not wait in the grid queue. Over the last year the market paid for exactly that. Makers of turbines, fuel cells and engines that data centers install on site rose. Owners of existing plants fell, because what they can charge is limited by a capped capacity market, cheaper Texas power and new state tariffs for data centers.</p>
+  <div class="stats" id="paidstats"></div>
+  <div class="paid" id="paidchart"></div>
+  <p class="note" id="paidnote"></p>
+</section>
+
+<section id="map">
+  <div class="eyebrow">5 · The map</div>
+  <h2>The whole chain: where it binds, and whether the funds have noticed</h2>
+  <p class="sub">Each row is one link in the chain an AI data center needs, in the order it binds. The odds come from the scaling model above: the share of runs in which that link falls short by the end of 2027 and 2028 if AI keeps its trend. The price number is that link's price change over the last year, against the year before. The second is the share of all 13F filers holding at least one of its listed companies, June 2025 to June 2026. Tap a row for the detail.</p>
+  <div class="chart" id="quad"></div>
+  <p class="note" id="quadnote"></p>
+  <div class="tablewrap"><table class="map" id="maptable">
+    <thead><tr><th scope="col">Link</th><th scope="col">Binds on the trend</th><th scope="col">Price, last 12 months</th><th scope="col">Share of funds holding</th><th scope="col">Reading</th></tr></thead>
+    <tbody></tbody>
+  </table></div>
+</section>
+
+
+
+<section id="honest">
+  <div class="eyebrow">6 · What this can and cannot tell you</div>
+  <h2>Measured, inferred and guessed</h2>
+  <div class="cols">
+    <div><h3>Measured</h3><ul>
+      <li>Prices of transformers, switchgear, turbines and cable (BLS producer prices), copper and uranium (IMF), and consumer electricity and computers (BLS).</li>
+      <li>Big Tech capital spending, from SEC filings.</li>
+      <li>How many 13F filers hold each company, from SEC's quarterly data sets.</li>
+      <li>The cheapest price for a fixed capability score, from Epoch AI scores and listed prices.</li>
+      <li>AI chips sold and their power draw (Epoch AI), and the power plants planned and under construction (EIA).</li>
+    </ul></div>
+    <div><h3>Inferred</h3><ul>
+      <li>That price rises mean scarcity. They also reflect metals, tariffs and general inflation.</li>
+      <li>That AI is the cause. Transformer prices rose 61% from 2019 to 2022, before ChatGPT, from grid upgrades and supply chains.</li>
+      <li>Memory scarcity, which is read from consumer computer prices because no free memory-price series exists.</li>
+    </ul></div>
+    <div><h3>Guessed</h3><ul>
+      <li>The ranges in the scaling model: how much grid power each chip watt needs, how much new AI load lands on gas, copper and workers per megawatt, and how fast supply grows. Each is a range rather than a single number, and the odds are only as good as those ranges.</li>
+      <li>That the trend holds at all. The odds say which link breaks first if it does, not whether it will. A binding link slows the trend rather than stopping AI.</li>
+    </ul></div>
+    <div><h3>Not shown yet</h3><ul>
+      <li>Whether "scarce but uncrowded" stocks go on to beat the market. Most such rules fail a real backtest, so this needs one before it is trusted. The data for it exists: price series back decades and 13F filings back to 2013.</li>
+      <li>Electrician wages, transformer lead times and grid connection queues as live series. No current free source was reachable, so they enter the model as fixed figures from the reports listed below.</li>
+    </ul></div>
+  </div>
+  <p class="credit">Researched and built by Claude (Anthropic). Every number links to its source, the odds are model estimates, and nothing here is investment advice.</p>
+  <div class="sources" id="sources"></div>
+</section>
+</div>
+</div>
+<script>
+window.HN_STOCKS = /*STOCKS:["AMD","AVGO","BE","BWXT","CAT","CCJ","CEG","D","EME","ETN","FCX","FIX","GEV","HUBB","LEU","MOD","MTZ","MU","NRG","NVDA","NVT","OKLO","POWL","PWR","SCCO","SMR","SNDK","STRL","TLN","TSM","VRT","VST"]*/null;
+(function(){
+
+const D = {"asOf": "2026-10-15", "ai": {"GPT-4 level (March 2023)": {"threshold": 125.88, "steps": [{"date": "2023-03-14", "model": "GPT-4 (Mar 2023)", "eci": 125.88, "price": 37.5, "src": "E"}, {"date": "2024-01-25", "model": "GPT-4 Turbo (Nov 2023)", "eci": 126.46, "price": 15.0, "src": "E"}, {"date": "2024-05-13", "model": "GPT-4o (May 2024)", "eci": 129.05, "price": 7.5, "src": "E"}, {"date": "2024-05-14", "model": "Gemini 1.5 Pro (May 2024)", "eci": 126.92, "price": 2.19, "src": "E"}, {"date": "2024-07-18", "model": "GPT-4o mini", "eci": 126.58, "price": 0.26, "src": "E"}, {"date": "2024-09-24", "model": "Gemini 1.5 Flash (Sep 2024)", "eci": 129.37, "price": 0.13, "src": "E"}, {"date": "2024-12-12", "model": "Phi-4", "eci": 130.43, "price": 0.1225, "src": "E"}, {"date": "2025-06-20", "model": "Mistral Small 3.2", "eci": 131.75, "price": 0.1062, "src": "O"}, {"date": "2025-08-05", "model": "gpt-oss-120b", "eci": 140.0, "price": 0.0702, "src": "O"}, {"date": "2025-08-05", "model": "gpt-oss-20b", "eci": 137.81, "price": 0.036, "src": "O"}]}, "GPT-5 level (August 2025)": {"threshold": 150.0, "steps": [{"date": "2025-08-07", "model": "GPT-5", "eci": 150.0, "price": 3.4375, "src": "O"}, {"date": "2025-12-17", "model": "Gemini 3 Flash", "eci": 151.8, "price": 1.125, "src": "O"}, {"date": "2026-07-09", "model": "GPT-5.6 Luna", "eci": 156.33, "price": 0.45, "src": "O"}, {"date": "2026-07-31", "model": "DeepSeek V4 Flash 0731", "eci": 154.49, "price": 0.172, "src": "O"}]}, "GPT-5.5 level (April 2026)": {"threshold": 158.95, "steps": [{"date": "2026-04-23", "model": "GPT-5.5", "eci": 158.95, "price": 11.25, "src": "O"}, {"date": "2026-07-09", "model": "GPT-5.6 Sol", "eci": 161.73, "price": 8.0, "src": "O"}, {"date": "2026-07-09", "model": "GPT-5.6 Terra", "eci": 159.43, "price": 4.5, "src": "O"}, {"date": "2026-09-22", "model": "GPT-6 Sol", "eci": 162.55, "price": 4.0, "src": "O"}, {"date": "2026-10-07", "model": "Claude Haiku 5.5", "eci": 158.98, "price": 0.2, "src": "O"}]}, "GPT-6 Astra level (September 2026)": {"threshold": 166.41, "steps": [{"date": "2026-09-03", "model": "GPT-6 Astra", "eci": 166.41, "price": 20.0, "src": "O"}, {"date": "2026-09-22", "model": "Claude Opus 5.5", "eci": 166.82, "price": 8.0, "src": "O"}]}, "Best model available": {"steps": [{"date": "2023-03-14", "model": "GPT-4 (Mar 2023)", "eci": 125.88, "price": 37.5, "src": "E"}, {"date": "2024-01-25", "model": "GPT-4 Turbo (Nov 2023)", "eci": 126.46, "price": 15.0, "src": "E"}, {"date": "2024-02-29", "model": "Claude 3 Opus", "eci": 126.91, "price": 30.0, "src": "E"}, {"date": "2024-05-13", "model": "GPT-4o (May 2024)", "eci": 129.05, "price": 7.5, "src": "E"}, {"date": "2024-06-20", "model": "Claude 3.5 Sonnet", "eci": 130.0, "price": 6.0, "src": "E"}, {"date": "2024-12-12", "model": "Phi-4", "eci": 130.43, "price": 0.1225, "src": "E"}, {"date": "2024-12-26", "model": "DeepSeek-V3", "eci": 132.33, "price": 0.4775, "src": "E"}, {"date": "2025-02-05", "model": "Gemini 2.0 Flash (Feb 2025)", "eci": 134.68, "price": 0.175, "src": "E"}, {"date": "2025-04-14", "model": "GPT-4.1 mini", "eci": 135.0, "price": 0.7, "src": "O"}, {"date": "2025-04-16", "model": "o4-mini", "eci": 145.6, "price": 1.925, "src": "O"}, {"date": "2025-08-07", "model": "GPT-5", "eci": 150.0, "price": 3.4375, "src": "O"}, {"date": "2025-11-24", "model": "Claude Opus 4.5", "eci": 150.17, "price": 10.0, "src": "O"}, {"date": "2025-12-17", "model": "Gemini 3 Flash", "eci": 151.8, "price": 1.125, "src": "O"}, {"date": "2026-02-19", "model": "Gemini 3.1 Pro", "eci": 154.67, "price": 4.5, "src": "O"}, {"date": "2026-04-23", "model": "GPT-5.5", "eci": 158.95, "price": 11.25, "src": "O"}, {"date": "2026-04-23", "model": "GPT-5.5 Pro", "eci": 161.97, "price": 67.5, "src": "O"}, {"date": "2026-07-24", "model": "Claude Opus 5", "eci": 162.6, "price": 10.0, "src": "O"}, {"date": "2026-09-03", "model": "GPT-6 Astra", "eci": 166.41, "price": 20.0, "src": "O"}, {"date": "2026-09-22", "model": "Claude Opus 5.5", "eci": 166.82, "price": 8.0, "src": "O"}]}}, "capex": [["2017Q3", {"MSFT": 2.13, "GOOGL": 3.54, "AMZN": 3.07, "META": 1.75, "ORCL": 0.47}, 11.0], ["2017Q4", {"MSFT": 2.59, "GOOGL": 4.31, "AMZN": 3.62, "META": 2.26, "ORCL": 0.6}, 13.4], ["2018Q1", {"MSFT": 2.93, "GOOGL": 7.3, "AMZN": 3.1, "META": 2.81, "ORCL": 0.29}, 16.4], ["2018Q2", {"MSFT": 3.98, "GOOGL": 5.48, "AMZN": 3.24, "META": 3.46, "ORCL": 0.38}, 16.5], ["2018Q3", {"MSFT": 3.6, "GOOGL": 5.28, "AMZN": 3.35, "META": 3.34, "ORCL": 0.38}, 16.0], ["2018Q4", {"MSFT": 3.71, "GOOGL": 7.08, "AMZN": 3.73, "META": 4.3, "ORCL": 0.42}, 19.2], ["2019Q1", {"MSFT": 2.56, "GOOGL": 4.64, "AMZN": 3.29, "META": 3.84, "ORCL": 0.44}, 14.8], ["2019Q2", {"MSFT": 4.05, "GOOGL": 6.13, "AMZN": 3.56, "META": 3.63, "ORCL": 0.41}, 17.8], ["2019Q3", {"MSFT": 3.38, "GOOGL": 6.73, "AMZN": 4.7, "META": 3.53, "ORCL": 0.39}, 18.7], ["2019Q4", {"MSFT": 3.54, "GOOGL": 6.05, "AMZN": 5.31, "META": 4.1, "ORCL": 0.35}, 19.4], ["2020Q1", {"MSFT": 3.77, "GOOGL": 6.0, "AMZN": 6.79, "META": 3.56, "ORCL": 0.4}, 20.5], ["2020Q2", {"MSFT": 4.74, "GOOGL": 5.39, "AMZN": 7.46, "META": 3.25, "ORCL": 0.43}, 21.3], ["2020Q3", {"MSFT": 4.91, "GOOGL": 5.41, "AMZN": 11.06, "META": 3.69, "ORCL": 0.44}, 25.5], ["2020Q4", {"MSFT": 4.17, "GOOGL": 5.48, "AMZN": 14.82, "META": 4.66, "ORCL": 0.57}, 29.7], ["2021Q1", {"MSFT": 5.09, "GOOGL": 5.94, "AMZN": 12.08, "META": 4.3, "ORCL": 0.41}, 27.8], ["2021Q2", {"MSFT": 6.45, "GOOGL": 5.5, "AMZN": 14.29, "META": 4.64, "ORCL": 0.72}, 31.6], ["2021Q3", {"MSFT": 5.81, "GOOGL": 6.82, "AMZN": 15.75, "META": 4.35, "ORCL": 1.06}, 33.8], ["2021Q4", {"MSFT": 5.87, "GOOGL": 6.38, "AMZN": 18.93, "META": 5.4, "ORCL": 0.93}, 37.5], ["2022Q1", {"MSFT": 5.34, "GOOGL": 9.79, "AMZN": 14.95, "META": 5.44, "ORCL": 1.1}, 36.6], ["2022Q2", {"MSFT": 6.87, "GOOGL": 6.83, "AMZN": 15.72, "META": 7.57, "ORCL": 1.42}, 38.4], ["2022Q3", {"MSFT": 6.28, "GOOGL": 7.28, "AMZN": 16.38, "META": 9.38, "ORCL": 1.72}, 41.0], ["2022Q4", {"MSFT": 6.27, "GOOGL": 7.59, "AMZN": 16.59, "META": 8.8, "ORCL": 2.44}, 41.7], ["2023Q1", {"MSFT": 6.61, "GOOGL": 6.29, "AMZN": 14.21, "META": 6.82, "ORCL": 2.63}, 36.6], ["2023Q2", {"MSFT": 8.94, "GOOGL": 6.89, "AMZN": 11.46, "META": 6.13, "ORCL": 1.91}, 35.3], ["2023Q3", {"MSFT": 9.92, "GOOGL": 8.05, "AMZN": 12.48, "META": 6.5, "ORCL": 1.31}, 38.3], ["2023Q4", {"MSFT": 9.73, "GOOGL": 11.02, "AMZN": 14.59, "META": 7.59, "ORCL": 1.08}, 44.0], ["2024Q1", {"MSFT": 10.95, "GOOGL": 12.01, "AMZN": 14.93, "META": 6.4, "ORCL": 1.67}, 46.0], ["2024Q2", {"MSFT": 13.87, "GOOGL": 13.19, "AMZN": 17.62, "META": 8.17, "ORCL": 2.8}, 55.6], ["2024Q3", {"MSFT": 14.92, "GOOGL": 13.06, "AMZN": 22.62, "META": 8.26, "ORCL": 2.3}, 61.2], ["2024Q4", {"MSFT": 15.8, "GOOGL": 14.28, "AMZN": 27.83, "META": 14.43, "ORCL": 3.97}, 76.3], ["2025Q1", {"MSFT": 16.75, "GOOGL": 17.2, "AMZN": 25.02, "META": 12.94, "ORCL": 5.86}, 77.8], ["2025Q2", {"MSFT": 17.08, "GOOGL": 22.45, "AMZN": 32.18, "META": 16.54, "ORCL": 9.08}, 97.3], ["2025Q3", {"MSFT": 19.39, "GOOGL": 23.95, "AMZN": 35.09, "META": 18.83, "ORCL": 8.5}, 105.8], ["2025Q4", {"MSFT": 29.88, "GOOGL": 27.85, "AMZN": 39.52, "META": 21.38, "ORCL": 12.03}, 130.7], ["2026Q1", {"MSFT": 30.88, "GOOGL": 35.67, "AMZN": 44.2, "META": 19.0, "ORCL": 18.64}, 148.4], ["2026Q2", {"MSFT": 35.8, "GOOGL": 44.92, "AMZN": 54.21, "META": 30.12, "ORCL": 16.49}, 181.5]], "chip": [["2022-03-31", 0.08, 0.07, 1], ["2022-06-30", 0.18, 0.14, 1], ["2022-09-30", 0.27, 0.21, 2], ["2022-12-31", 0.35, 0.29, 3], ["2023-03-31", 0.51, 0.42, 7], ["2023-06-30", 0.72, 0.67, 7], ["2023-09-30", 1.04, 1.06, 7], ["2023-12-31", 1.45, 1.6, 8], ["2024-03-31", 2.12, 2.42, 17], ["2024-06-30", 2.93, 3.46, 17], ["2024-09-30", 3.9, 4.76, 18], ["2024-12-31", 5.13, 6.69, 19], ["2025-03-31", 6.6, 9.27, 20], ["2025-06-30", 8.17, 12.2, 22], ["2025-09-30", 10.04, 15.91, 24], ["2025-12-31", 12.26, 20.33, 25], ["2026-03-31", 14.81, 25.32, 25], ["2026-06-30", 17.9, 31.65, 28], ["2026-09-30", 18.8, 33.55, 28]], "dcNow": 5.37, "dcThen": 0.84, "links": [{"key": "chips", "name": "AI chips", "scarce": "Accelerators and the factories that make them", "tickers": ["NVDA", "AVGO", "AMD", "TSM"], "priceLabel": "Chip producer prices", "yoy": -3.1, "prior": -3.5, "spark": [["2019-01", 102.4], ["2019-02", 102.0], ["2019-03", 102.0], ["2019-04", 102.4], ["2019-05", 101.7], ["2019-06", 102.0], ["2019-07", 102.0], ["2019-08", 102.4], ["2019-09", 102.7], ["2019-10", 102.0], ["2019-11", 102.0], ["2019-12", 102.4], ["2020-01", 101.4], ["2020-02", 101.7], ["2020-03", 102.0], ["2020-04", 99.2], ["2020-05", 98.9], ["2020-06", 98.9], ["2020-07", 98.3], ["2020-08", 98.0], ["2020-09", 98.0], ["2020-10", 94.5], ["2020-11", 94.5], ["2020-12", 94.8], ["2021-01", 94.5], ["2021-02", 94.2], ["2021-03", 94.5], ["2021-04", 94.2], ["2021-05", 94.5], ["2021-06", 94.8], ["2021-07", 93.6], ["2021-08", 94.1], ["2021-09", 94.1], ["2021-10", 93.4], ["2021-11", 94.1], ["2021-12", 94.4], ["2022-01", 95.4], ["2022-02", 95.3], ["2022-03", 95.8], ["2022-04", 96.4], ["2022-05", 96.9], ["2022-06", 97.5], ["2022-07", 97.3], ["2022-08", 97.0], ["2022-09", 97.6], ["2022-10", 99.6], ["2022-11", 100.0], ["2022-12", 100.0], ["2023-01", 99.8], ["2023-02", 100.4], ["2023-03", 100.1], ["2023-04", 99.3], ["2023-05", 99.0], ["2023-06", 99.2], ["2023-07", 98.9], ["2023-08", 99.2], ["2023-09", 99.8], ["2023-10", 99.4], ["2023-11", 99.6], ["2023-12", 99.1], ["2024-01", 99.5], ["2024-02", 99.4], ["2024-03", 99.3], ["2024-04", 99.9], ["2024-05", 99.7], ["2024-06", 99.0], ["2024-07", 96.1], ["2024-08", 95.6], ["2024-09", 95.7], ["2024-10", 96.5], ["2024-11", 96.5], ["2024-12", 96.0], ["2025-01", 94.6], ["2025-02", 94.6], ["2025-03", 95.2], ["2025-04", 94.9], ["2025-05", 94.1], ["2025-06", 93.8], ["2025-07", 93.6], ["2025-08", 92.3], ["2025-09", 92.5], ["2025-10", 93.1], ["2025-11", 93.1], ["2025-12", 93.1], ["2026-01", 93.0], ["2026-02", 94.6], ["2026-03", 94.6], ["2026-04", 96.1], ["2026-05", 94.9], ["2026-06", 93.7], ["2026-07", 91.2], ["2026-08", 89.4]], "verdict": "Plentiful, crowded", "note": "Producer prices for chips keep falling, partly because BLS adjusts them for better performance. Seven in ten funds already own a chip leader.", "crowd": [69.5, 70.5, 70.6, 70.7, 72.1], "crowdStocks": {"NVDA": [64.1, 65.4, 65.7, 66.0, 67.3], "AVGO": [49.5, 52.1, 52.8, 52.8, 54.4], "AMD": [30.9, 32.8, 35.2, 35.9, 44.9], "TSM": [32.1, 34.1, 35.2, 37.0, 40.2]}, "binds": {"status": "Binding now", "odds": null, "ev": "TSMC packaging still about 10\u201320% short of orders; capacity doubles by 2028, slower than the trend"}}, {"key": "memory", "name": "Memory", "scarce": "DRAM, high-bandwidth memory and flash", "tickers": ["MU", "SNDK"], "priceLabel": "Computer prices (proxy)", "yoy": 9.7, "prior": -0.7, "spark": [["2019-01", 105.3], ["2019-02", 104.3], ["2019-03", 104.9], ["2019-04", 104.2], ["2019-05", 103.5], ["2019-06", 101.5], ["2019-07", 104.5], ["2019-08", 105.4], ["2019-09", 104.5], ["2019-10", 102.4], ["2019-11", 102.2], ["2019-12", 100.0], ["2020-01", 99.2], ["2020-02", 100.6], ["2020-03", 101.8], ["2020-04", 102.6], ["2020-05", 101.6], ["2020-06", 102.0], ["2020-07", 101.8], ["2020-08", 102.2], ["2020-09", 98.5], ["2020-10", 97.8], ["2020-11", 99.9], ["2020-12", 100.8], ["2021-01", 100.8], ["2021-02", 100.5], ["2021-03", 98.5], ["2021-04", 103.5], ["2021-05", 104.2], ["2021-06", 104.3], ["2021-07", 105.6], ["2021-08", 105.7], ["2021-09", 106.9], ["2021-10", 106.0], ["2021-11", 104.6], ["2021-12", 103.6], ["2022-01", 104.3], ["2022-02", 105.1], ["2022-03", 106.0], ["2022-04", 103.8], ["2022-05", 102.3], ["2022-06", 103.7], ["2022-07", 101.8], ["2022-08", 101.2], ["2022-09", 103.0], ["2022-10", 102.8], ["2022-11", 100.0], ["2022-12", 97.6], ["2023-01", 97.9], ["2023-02", 99.2], ["2023-03", 99.8], ["2023-04", 98.5], ["2023-05", 98.1], ["2023-06", 98.3], ["2023-07", 96.8], ["2023-08", 96.1], ["2023-09", 97.7], ["2023-10", 96.9], ["2023-11", 95.4], ["2023-12", 94.1], ["2024-01", 95.8], ["2024-02", 96.5], ["2024-03", 96.1], ["2024-04", 97.0], ["2024-05", 95.9], ["2024-06", 94.1], ["2024-07", 94.5], ["2024-08", 94.1], ["2024-09", 93.1], ["2024-10", 91.7], ["2024-11", 90.1], ["2024-12", 89.3], ["2025-01", 90.0], ["2025-02", 90.7], ["2025-03", 90.9], ["2025-04", 91.5], ["2025-05", 92.6], ["2025-06", 93.9], ["2025-07", 92.8], ["2025-08", 92.2], ["2025-09", 92.4], ["2025-11", 89.9], ["2025-12", 88.7], ["2026-01", 91.5], ["2026-02", 91.5], ["2026-03", 92.8], ["2026-04", 93.6], ["2026-05", 93.8], ["2026-06", 93.1], ["2026-07", 96.4], ["2026-08", 100.0], ["2026-09", 101.4]], "verdict": "Tight and crowded", "note": "No free memory-price series exists, so this uses consumer computer prices, which turned up for the first time in years as memory costs passed through. Funds holding Micron or Sandisk doubled in a year.", "crowd": [23.5, 26.4, 31.1, 35.5, 45.8], "crowdStocks": {"MU": [22.7, 25.5, 30.3, 34.0, 43.9], "SNDK": [5.1, 6.3, 8.2, 13.3, 20.5]}, "binds": {"status": "Binding now", "odds": null, "ev": "DRAM contract prices up 93\u201398% in Q1 2026; HBM for 2027 mostly sold"}}, {"key": "turbines", "name": "Turbines", "scarce": "Gas turbines and on-site power", "tickers": ["GEV", "BE"], "priceLabel": "Turbine and generator prices", "yoy": 5.3, "prior": 2.2, "spark": [["2019-01", 89.0], ["2019-02", 89.6], ["2019-03", 89.6], ["2019-04", 89.9], ["2019-05", 90.2], ["2019-06", 90.4], ["2019-07", 90.5], ["2019-08", 90.8], ["2019-09", 91.0], ["2019-10", 90.7], ["2019-11", 91.0], ["2019-12", 91.4], ["2020-01", 92.0], ["2020-02", 92.2], ["2020-03", 92.4], ["2020-04", 92.4], ["2020-05", 92.6], ["2020-06", 93.2], ["2020-07", 93.4], ["2020-08", 93.2], ["2020-09", 93.3], ["2020-10", 93.5], ["2020-11", 93.7], ["2020-12", 93.9], ["2021-01", 94.0], ["2021-02", 94.2], ["2021-03", 94.4], ["2021-04", 94.5], ["2021-05", 95.4], ["2021-06", 95.3], ["2021-07", 95.4], ["2021-08", 95.3], ["2021-09", 96.0], ["2021-10", 96.3], ["2021-11", 96.4], ["2021-12", 96.6], ["2022-01", 97.6], ["2022-02", 97.3], ["2022-03", 98.3], ["2022-04", 100.6], ["2022-05", 100.7], ["2022-06", 101.0], ["2022-07", 101.0], ["2022-08", 100.4], ["2022-09", 99.6], ["2022-10", 99.8], ["2022-11", 100.0], ["2022-12", 100.2], ["2023-01", 100.5], ["2023-02", 100.8], ["2023-03", 104.1], ["2023-04", 104.2], ["2023-05", 104.4], ["2023-06", 104.2], ["2023-07", 103.1], ["2023-08", 105.1], ["2023-09", 105.4], ["2023-10", 105.8], ["2023-11", 106.3], ["2023-12", 106.3], ["2024-01", 106.7], ["2024-02", 106.7], ["2024-03", 106.9], ["2024-04", 107.5], ["2024-05", 107.9], ["2024-06", 108.2], ["2024-07", 108.8], ["2024-08", 109.4], ["2024-09", 108.6], ["2024-10", 108.9], ["2024-11", 109.5], ["2024-12", 110.1], ["2025-01", 110.9], ["2025-02", 111.8], ["2025-03", 112.5], ["2025-04", 112.6], ["2025-05", 112.9], ["2025-06", 112.1], ["2025-07", 112.2], ["2025-08", 111.9], ["2025-09", 113.6], ["2025-10", 114.0], ["2025-11", 114.4], ["2025-12", 114.0], ["2026-01", 114.0], ["2026-02", 115.4], ["2026-03", 115.7], ["2026-04", 116.1], ["2026-05", 116.9], ["2026-06", 117.7], ["2026-07", 118.0], ["2026-08", 117.8]], "verdict": "Crowd ahead of prices", "note": "Funds piled into GE Vernova and Bloom Energy (+11.5 points of all funds), but turbine prices are up only modestly. The crowd is betting on scarcity the price data does not show yet.", "crowd": [30.0, 32.6, 33.6, 37.5, 41.5], "crowdStocks": {"GEV": [29.1, 31.1, 31.8, 35.4, 38.8], "BE": [4.8, 7.4, 9.1, 11.1, 14.4]}, "binds": {"status": "Binding now", "odds": [93, 96], "ev": "GE Vernova mostly sold out through 2030; orders for 3+ years of world output"}}, {"key": "gear", "name": "Grid gear", "scarce": "Transformers and switchgear", "tickers": ["ETN", "HUBB", "POWL", "VRT", "NVT", "MOD"], "priceLabel": "Transformer and switchgear prices", "yoy": 10.6, "prior": 6.8, "spark": [["2019-01", 66.5], ["2019-02", 66.5], ["2019-03", 67.0], ["2019-04", 67.0], ["2019-05", 67.2], ["2019-06", 67.1], ["2019-07", 67.3], ["2019-08", 67.3], ["2019-09", 67.9], ["2019-10", 68.0], ["2019-11", 68.2], ["2019-12", 68.4], ["2020-01", 68.8], ["2020-02", 69.2], ["2020-03", 68.9], ["2020-04", 68.7], ["2020-05", 68.5], ["2020-06", 68.7], ["2020-07", 69.2], ["2020-08", 69.0], ["2020-09", 69.0], ["2020-10", 69.2], ["2020-11", 69.6], ["2020-12", 69.8], ["2021-01", 70.3], ["2021-02", 70.7], ["2021-03", 71.5], ["2021-04", 72.4], ["2021-05", 74.0], ["2021-06", 76.2], ["2021-07", 77.2], ["2021-08", 77.6], ["2021-09", 80.1], ["2021-10", 81.2], ["2021-11", 83.3], ["2021-12", 84.5], ["2022-01", 85.9], ["2022-02", 88.6], ["2022-03", 91.3], ["2022-04", 93.0], ["2022-05", 93.8], ["2022-06", 97.2], ["2022-07", 98.8], ["2022-08", 100.4], ["2022-09", 100.6], ["2022-10", 99.5], ["2022-11", 100.0], ["2022-12", 100.5], ["2023-01", 100.6], ["2023-02", 100.7], ["2023-03", 101.1], ["2023-04", 101.6], ["2023-05", 101.9], ["2023-06", 102.2], ["2023-07", 103.0], ["2023-08", 103.5], ["2023-09", 103.6], ["2023-10", 104.0], ["2023-11", 104.8], ["2023-12", 105.7], ["2024-01", 106.2], ["2024-02", 106.6], ["2024-03", 107.3], ["2024-04", 107.0], ["2024-05", 107.5], ["2024-06", 108.8], ["2024-07", 109.2], ["2024-08", 109.0], ["2024-09", 108.9], ["2024-10", 109.2], ["2024-11", 109.2], ["2024-12", 109.8], ["2025-01", 109.9], ["2025-02", 109.8], ["2025-03", 110.7], ["2025-04", 113.4], ["2025-05", 114.7], ["2025-06", 115.4], ["2025-07", 116.7], ["2025-08", 116.6], ["2025-09", 117.2], ["2025-10", 118.9], ["2025-11", 118.7], ["2025-12", 119.5], ["2026-01", 120.8], ["2026-02", 121.3], ["2026-03", 121.8], ["2026-04", 123.6], ["2026-05", 124.0], ["2026-06", 124.0], ["2026-07", 126.6], ["2026-08", 129.2]], "verdict": "Tight, crowd building", "note": "Switchgear is up 13.3% in a year and transformers 7.8%. Most of the transformer jump came before ChatGPT: +61.0% from 2019 to 2022.", "crowd": [36.6, 37.9, 36.8, 38.8, 41.1], "crowdStocks": {"ETN": [28.3, 29.2, 27.9, 28.4, 30.1], "HUBB": [10.6, 10.9, 10.4, 11.0, 11.5], "POWL": [4.6, 5.0, 4.8, 5.4, 6.6], "VRT": [16.0, 17.5, 18.3, 20.7, 23.1], "NVT": [7.8, 8.5, 8.6, 9.4, 11.0], "MOD": [5.1, 5.5, 5.7, 6.2, 7.2]}, "binds": {"status": "Binding now", "odds": [100, 100], "ev": "US power transformers 15% short in 2026; lead times around 128 weeks"}}, {"key": "power", "name": "Electricity", "scarce": "Power plants that can deliver at peak", "tickers": ["CEG", "VST", "TLN", "NRG"], "priceLabel": "PJM capacity price, $/MW-day", "yoy": null, "prior": null, "spark": null, "pjm": [["2022/23", 50.0, "v"], ["2023/24", 34.13, "v"], ["2024/25", 28.92, "v"], ["2025/26", 269.92, "v"], ["2026/27", 329.17, "v"], ["2027/28", 333.44, "v"], ["2028/29", 325.0, "v"]], "verdict": "Short, price capped, crowd flat", "note": "The largest US grid pays power plants to be ready at peak. That price jumped elevenfold and has sat at its legal cap for three auctions while the grid still came up 6.8 GW short. Without the cap it would have cleared at $555. The share of funds owning power producers has not moved.", "crowd": [28.3, 29.3, 29.3, 28.1, 28.3], "crowdStocks": {"CEG": [21.0, 22.2, 22.8, 21.5, 21.0], "VST": [15.5, 16.4, 15.2, 14.9, 15.9], "TLN": [5.6, 6.8, 6.7, 6.6, 7.3], "NRG": [12.4, 12.8, 12.2, 12.0, 11.6]}, "binds": {"status": "Binding now in PJM, next nationally", "odds": [94, 99], "ev": "PJM 6.8 GW short; the trend needs more firm power than the US is building"}}, {"key": "copper", "name": "Copper", "scarce": "Wire for every transformer, line and rack", "tickers": ["FCX", "SCCO"], "priceLabel": "Copper, $/tonne", "yoy": 38.6, "prior": 4.1, "spark": [["2019-01", 73.8], ["2019-02", 78.3], ["2019-03", 80.0], ["2019-04", 80.0], ["2019-05", 74.8], ["2019-06", 73.1], ["2019-07", 73.8], ["2019-08", 70.9], ["2019-09", 71.5], ["2019-10", 71.5], ["2019-11", 72.8], ["2019-12", 75.5], ["2020-01", 74.9], ["2020-02", 70.7], ["2020-03", 64.4], ["2020-04", 62.8], ["2020-05", 65.1], ["2020-06", 71.5], ["2020-07", 79.2], ["2020-08", 80.9], ["2020-09", 83.3], ["2020-10", 83.4], ["2020-11", 87.8], ["2020-12", 96.6], ["2021-01", 99.0], ["2021-02", 105.2], ["2021-03", 111.7], ["2021-04", 115.8], ["2021-05", 126.3], ["2021-06", 119.6], ["2021-07", 117.4], ["2021-08", 116.4], ["2021-09", 115.8], ["2021-10", 122.1], ["2021-11", 120.9], ["2021-12", 118.7], ["2022-01", 121.5], ["2022-02", 123.5], ["2022-03", 127.1], ["2022-04", 126.4], ["2022-05", 116.7], ["2022-06", 112.6], ["2022-07", 93.7], ["2022-08", 99.3], ["2022-09", 96.2], ["2022-10", 95.0], ["2022-11", 100.0], ["2022-12", 104.0], ["2023-01", 111.9], ["2023-02", 111.0], ["2023-03", 110.0], ["2023-04", 109.4], ["2023-05", 102.4], ["2023-06", 104.3], ["2023-07", 105.3], ["2023-08", 103.7], ["2023-09", 102.8], ["2023-10", 98.7], ["2023-11", 101.7], ["2023-12", 104.4], ["2024-01", 103.7], ["2024-02", 103.2], ["2024-03", 108.0], ["2024-04", 117.3], ["2024-05", 125.7], ["2024-06", 119.9], ["2024-07", 116.6], ["2024-08", 111.6], ["2024-09", 115.0], ["2024-10", 118.4], ["2024-11", 112.7], ["2024-12", 110.7], ["2025-01", 111.5], ["2025-02", 115.9], ["2025-03", 120.9], ["2025-04", 113.9], ["2025-05", 118.4], ["2025-06", 122.2], ["2025-07", 121.4], ["2025-08", 120.1], ["2025-09", 124.2], ["2025-10", 133.4], ["2025-11", 134.3], ["2025-12", 146.5], ["2026-01", 161.3], ["2026-02", 160.9], ["2026-03", 155.6], ["2026-04", 160.1], ["2026-05", 167.9], ["2026-06", 168.4], ["2026-07", 168.2]], "verdict": "Tight, crowd not here", "note": "The fastest price riser on the map: +38.6% in a year after +4.1% the year before. Fund ownership of the two big US copper miners rose only 3.2 points.", "crowd": [20.3, 20.4, 21.3, 23.1, 23.5], "crowdStocks": {"FCX": [18.6, 18.6, 19.4, 21.0, 21.4], "SCCO": [8.0, 8.4, 8.6, 9.4, 9.7]}, "binds": {"status": "Binds next", "odds": [86, 99], "ev": "The trend needs about 1 Mt of new copper a year by 2027 against a market surplus near 0.4 Mt"}}, {"key": "builders", "name": "Builders", "scarce": "Electricians and grid crews", "tickers": ["PWR", "EME", "FIX", "MTZ", "STRL"], "priceLabel": "Data center construction, real $/month", "yoy": 66.3, "prior": 32.5, "spark": [["2019-01", 83.4], ["2019-02", 81.2], ["2019-03", 81.1], ["2019-04", 83.6], ["2019-05", 99.6], ["2019-06", 102.6], ["2019-07", 99.2], ["2019-08", 97.9], ["2019-09", 91.0], ["2019-10", 96.5], ["2019-11", 98.6], ["2019-12", 81.4], ["2020-01", 94.7], ["2020-02", 94.2], ["2020-03", 96.2], ["2020-04", 92.7], ["2020-05", 95.8], ["2020-06", 99.8], ["2020-07", 96.4], ["2020-08", 99.9], ["2020-09", 111.5], ["2020-10", 98.0], ["2020-11", 93.8], ["2020-12", 93.8], ["2021-01", 93.0], ["2021-02", 87.6], ["2021-03", 104.0], ["2021-04", 96.8], ["2021-05", 98.8], ["2021-06", 99.0], ["2021-07", 102.0], ["2021-08", 110.3], ["2021-09", 113.1], ["2021-10", 87.9], ["2021-11", 92.0], ["2021-12", 99.1], ["2022-01", 90.1], ["2022-02", 82.9], ["2022-03", 93.1], ["2022-04", 99.3], ["2022-05", 100.3], ["2022-06", 101.3], ["2022-07", 101.8], ["2022-08", 106.6], ["2022-09", 116.7], ["2022-10", 96.2], ["2022-11", 100.0], ["2022-12", 103.1], ["2023-01", 110.7], ["2023-02", 122.2], ["2023-03", 129.7], ["2023-04", 134.8], ["2023-05", 137.5], ["2023-06", 141.9], ["2023-07", 153.0], ["2023-08", 163.1], ["2023-09", 166.9], ["2023-10", 179.3], ["2023-11", 174.0], ["2023-12", 176.6], ["2024-01", 188.7], ["2024-02", 195.0], ["2024-03", 219.8], ["2024-04", 211.7], ["2024-05", 245.4], ["2024-06", 269.3], ["2024-07", 279.4], ["2024-08", 289.5], ["2024-09", 294.1], ["2024-10", 302.9], ["2024-11", 299.6], ["2024-12", 325.0], ["2025-01", 321.9], ["2025-02", 318.2], ["2025-03", 338.3], ["2025-04", 396.7], ["2025-05", 368.2], ["2025-06", 358.8], ["2025-07", 366.3], ["2025-08", 383.7], ["2025-09", 394.4], ["2025-10", 400.5], ["2025-11", 379.0], ["2025-12", 392.9], ["2026-01", 388.5], ["2026-02", 388.2], ["2026-03", 415.4], ["2026-04", 451.3], ["2026-05", 487.8], ["2026-06", 541.0], ["2026-07", 584.2], ["2026-08", 638.4]], "volume": true, "verdict": "Busy, crowd building", "note": "No current wage series for electricians was reachable, so this row shows spending on data center construction instead, a volume rather than a price. It is up sixfold since ChatGPT.", "crowd": [24.7, 26.1, 26.3, 28.2, 30.6], "crowdStocks": {"PWR": [17.0, 17.6, 18.4, 19.6, 21.9], "EME": [11.6, 13.0, 12.4, 13.1, 14.0], "FIX": [9.3, 10.8, 11.8, 13.6, 15.3], "MTZ": [7.2, 7.9, 7.9, 9.1, 10.3], "STRL": [6.3, 7.3, 7.2, 8.0, 10.0]}, "binds": {"status": "Probably holds", "odds": [15, 37], "ev": "Electricians on data center sites; tight but coverable if workers move over from other jobs"}}, {"key": "nuclear", "name": "Nuclear fuel", "scarce": "Uranium and enrichment", "tickers": ["CCJ", "LEU", "OKLO", "SMR", "BWXT"], "priceLabel": "Uranium, $/lb", "yoy": 17.5, "prior": -13.6, "spark": [["2019-01", 70.1], ["2019-02", 69.9], ["2019-03", 66.4], ["2019-04", 62.8], ["2019-05", 60.3], ["2019-06", 59.8], ["2019-07", 61.6], ["2019-08", 61.7], ["2019-09", 62.1], ["2019-10", 60.8], ["2019-11", 61.0], ["2019-12", 62.6], ["2020-01", 60.2], ["2020-02", 60.3], ["2020-03", 60.2], ["2020-04", 73.2], ["2020-05", 81.8], ["2020-06", 80.8], ["2020-07", 79.0], ["2020-08", 76.6], ["2020-09", 73.2], ["2020-10", 72.4], ["2020-11", 72.0], ["2020-12", 72.7], ["2021-01", 72.9], ["2021-02", 70.0], ["2021-03", 69.2], ["2021-04", 72.6], ["2021-05", 73.9], ["2021-06", 78.5], ["2021-07", 79.0], ["2021-08", 78.5], ["2021-09", 110.1], ["2021-10", 93.9], ["2021-11", 75.9], ["2021-12", 88.2], ["2022-01", 90.0], ["2022-02", 87.5], ["2022-03", 111.1], ["2022-04", 118.9], ["2022-05", 99.8], ["2022-06", 98.5], ["2022-07", 95.1], ["2022-08", 97.2], ["2022-09", 100.0], ["2022-10", 100.9], ["2022-11", 100.0], ["2022-12", 95.7], ["2023-01", 97.8], ["2023-02", 100.9], ["2023-03", 99.5], ["2023-04", 102.0], ["2023-05", 106.1], ["2023-06", 111.6], ["2023-07", 110.5], ["2023-08", 113.2], ["2023-09", 129.9], ["2023-10", 140.8], ["2023-11", 152.1], ["2023-12", 171.1], ["2024-01", 196.2], ["2024-02", 198.6], ["2024-03", 175.4], ["2024-04", 174.9], ["2024-05", 180.6], ["2024-06", 168.9], ["2024-07", 166.7], ["2024-08", 159.4], ["2024-09", 157.8], ["2024-10", 162.4], ["2024-11", 154.2], ["2024-12", 147.0], ["2025-01", 144.0], ["2025-02", 132.6], ["2025-03", 126.6], ["2025-04", 128.6], ["2025-05", 139.9], ["2025-06", 145.5], ["2025-07", 143.9], ["2025-08", 144.0], ["2025-09", 153.5], ["2025-10", 156.2], ["2025-11", 152.0], ["2025-12", 155.1], ["2026-01", 170.2], ["2026-02", 174.1], ["2026-03", 168.0], ["2026-04", 169.4], ["2026-05", 168.6], ["2026-06", 168.8], ["2026-07", 169.1]], "verdict": "Tightening, crowd not here", "note": "Uranium turned from -13.6% to +17.5% a year. Fund ownership of the fuel and reactor names barely moved.", "crowd": [17.9, 19.6, 18.9, 19.5, 19.7], "crowdStocks": {"CCJ": [10.2, 11.0, 11.1, 11.5, 11.7], "LEU": [3.8, 5.0, 4.7, 4.5, 4.3], "OKLO": [5.9, 7.8, 7.7, 7.7, 7.6], "SMR": [5.4, 5.8, 5.2, 5.6, 5.9], "BWXT": [8.1, 8.6, 8.7, 9.4, 9.7]}, "binds": {"status": "Short, but not from AI", "odds": null, "ev": "Mines cover 90% of reactor needs already; AI restarts add under 1% by 2028"}}], "filers": [8038, 8023, 8624, 8740, 8856], "quarters": ["Jun 2025", "Sep 2025", "Dec 2025", "Mar 2026", "Jun 2026"], "model": {"odds": {"chips": {"1.5": 99, "2.5": 94}, "memory": {"1.5": 100, "2.5": 100}, "turbines": {"1.5": 93, "2.5": 96}, "power": {"1.5": 94, "2.5": 99}, "gear": {"1.5": 100, "2.5": 100}, "copper": {"1.5": 86, "2.5": 99}, "electricians": {"1.5": 15, "2.5": 37}}, "ranges": {"need_power": {"1.5": [30.01, 44.06, 60.99], "2.5": [66.91, 107.83, 162.58]}, "room_power": {"1.5": [16.35, 24.7, 33.07], "2.5": [28.61, 41.59, 54.78]}, "cu_need": {"1.5": [0.58, 1.01, 1.64], "2.5": [1.0, 1.9, 3.38]}, "cu_room": {"1.5": [0.51, 0.63, 0.75], "2.5": [0.29, 0.55, 0.81]}, "el_need": {"1.5": [4.93, 14.62, 33.02], "2.5": [14.1, 38.69, 87.88]}, "el_room": {"1.5": [21.15, 30.01, 39.12], "2.5": [35.25, 50.01, 65.2]}, "tb_need": {"1.5": [12.25, 19.41, 29.34], "2.5": [27.75, 47.53, 76.96]}, "tb_room": {"1.5": [8.29, 10.84, 13.56], "2.5": [16.18, 21.06, 26.41]}}, "room": [[0.0, 21.2, 24.3, 27.7], [0.25, 23.5, 26.8, 30.3], [0.5, 25.5, 29.3, 33.3], [0.75, 28.3, 32.8, 37.5], [1.0, 30.9, 36.4, 41.9], [1.25, 33.4, 39.9, 46.3], [1.5, 35.8, 43.4, 50.9], [1.75, 39.0, 47.6, 56.2], [2.0, 42.2, 51.9, 61.8], [2.25, 45.3, 56.2, 67.1], [2.5, 48.5, 60.5, 72.6]], "path": [[0.0, 21.2, 24.3, 27.7], [0.25, 24.7, 28.4, 32.5], [0.5, 28.6, 33.3, 38.4], [0.75, 32.9, 39.0, 45.8], [1.0, 37.6, 45.6, 54.9], [1.25, 42.9, 53.5, 65.9], [1.5, 48.9, 62.8, 79.5], [1.75, 55.5, 73.6, 95.9], [2.0, 63.1, 86.4, 115.5], [2.25, 71.8, 101.0, 139.2], [2.5, 81.5, 118.5, 168.2]]}, "hist": [["2023-03-31", 0.7], ["2023-06-30", 1.0], ["2023-09-30", 1.4], ["2023-12-31", 2.0], ["2024-03-31", 2.9], ["2024-06-30", 4.0], ["2024-09-30", 5.3], ["2024-12-31", 7.0], ["2025-03-31", 9.0], ["2025-06-30", 11.1], ["2025-09-30", 13.6], ["2025-12-31", 16.6], ["2026-03-31", 20.1], ["2026-06-30", 24.3]], "camp": [["2026-06-30", 13.3], ["2026-12-31", 18.2], ["2027-06-30", 22.5], ["2027-12-31", 27.2], ["2028-06-30", 35.1], ["2028-12-31", 43.0]], "paid": {"spy": 16.2, "groups": [{"name": "Power that skips the grid queue", "rows": [{"t": "BE", "n": "Bloom Energy", "w": "Fuel cells installed on site", "chg": 109.8, "pe": 359.0}, {"t": "GEV", "n": "GE Vernova", "w": "Gas turbines, mostly sold out through 2030", "chg": 46.1, "pe": 28.7}, {"t": "CAT", "n": "Caterpillar", "w": "Engines and turbines for on-site power", "chg": 42.0, "pe": 33.2}]}, {"name": "Owners of existing power plants", "rows": [{"t": "TLN", "n": "Talen Energy", "w": "Nuclear and gas plants in PJM", "chg": -14.2, "pe": null}, {"t": "VST", "n": "Vistra", "w": "Gas and nuclear plants in Texas and PJM", "chg": -26.1, "pe": 27.4}, {"t": "CEG", "n": "Constellation", "w": "Largest US nuclear fleet", "chg": -28.2, "pe": 28.8}, {"t": "NRG", "n": "NRG Energy", "w": "Gas plants and retail power in Texas and PJM", "chg": -39.1, "pe": 28.3}]}, {"name": "Regulated utility", "rows": [{"t": "D", "n": "Dominion", "w": "Regulated utility serving Virginia data centers", "chg": 2.1, "pe": 21.7}]}]}};
+
+const SOURCES = [
+  ['Epoch AI: Capabilities Index, LLM price data, AI chip sales (CC BY)','https://epoch.ai/data'],
+  ['OpenRouter model price list','https://openrouter.ai/models'],
+  ['BLS producer and consumer prices, via FRED','https://fred.stlouisfed.org/'],
+  ['IMF copper and uranium prices, via FRED','https://fred.stlouisfed.org/series/PCOPPUSDM'],
+  ['PJM capacity auction results','https://www.pjm.com/markets-and-operations/rpm'],
+  ['SEC XBRL company facts (capex) and Form 13F data sets','https://www.sec.gov/data-research/sec-markets-data/form-13f-data-sets'],
+  ['US Census data center construction spending, via Our World in Data','https://ourworldindata.org/grapher/monthly-spending-data-center-us'],
+  ['Epoch AI data centers hub (US campus power)','https://epoch.ai/data/data-centers'],
+  ['EIA Preliminary Monthly Electric Generator Inventory (Form 860M)','https://www.eia.gov/electricity/data/eia860m/'],
+  ['GE Vernova Q2 2026 results (gas turbine backlog)','https://www.gevernova.com/investors'],
+  ['Wood Mackenzie on the US transformer shortfall','https://www.woodmac.com/'],
+  ['International Copper Study Group forecasts','https://icsg.org/'],
+  ['BLS Occupational Outlook: electricians','https://www.bls.gov/ooh/construction-and-extraction/electricians.htm'],
+  ['TrendForce on HBM and CoWoS supply','https://www.trendforce.com/']
+];
+const $ = (s, el=document) => el.querySelector(s);
+const NS = 'http://www.w3.org/2000/svg';
+const svgEl = (tag, attrs={}, parent) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (parent) parent.appendChild(e); return e; };
+const fmtUSD = v => v >= 1 ? '$' + (Number.isInteger(v) ? v : v.toFixed(2)) : '$' + (v >= 0.1 ? v.toFixed(2) : v.toPrecision(2));
+const tk = t => (window.HN_STOCKS || []).includes(t) ? `<a class="tick" href="/stocks/${t.toLowerCase()}/">${t}</a>` : `<span class="tick">${t}</span>`;
+const pct = v => (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v).toFixed(1) + '%';
+const dt = s => new Date(s + (s.length === 7 ? '-15' : '') + 'T00:00:00Z').getTime();
+const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const monthName = s => { const d = new Date(dt(s)); return MON[d.getUTCMonth()] + ' ' + d.getUTCFullYear(); };
+
+function tipFor(box){ let t = box.querySelector('.tip'); if(!t){ t = document.createElement('div'); t.className='tip'; t.hidden = true; box.appendChild(t);} return t; }
+function showTip(box, html, x, y){ const t = tipFor(box); t.innerHTML = html; t.hidden = false; const bw = box.clientWidth; const tw = t.offsetWidth; let left = x + 14; if (left + tw > bw) left = Math.max(0, x - tw - 14); t.style.left = left + 'px'; t.style.top = Math.max(0, y - 10) + 'px'; }
+function hideTip(box){ const t = box.querySelector('.tip'); if (t) t.hidden = true; }
+
+$('#asof').textContent = 'Data as of October 15, 2026 · prices through August or September 2026 · fund holdings through June 30, 2026 (filed by mid-August)';
+
+/* ---------- 1. AI cost chart ---------- */
+(function(){
+  const g4 = D.ai['GPT-4 level (March 2023)'].steps, g5 = D.ai['GPT-5.5 level (April 2026)'].steps, g6 = D.ai['GPT-6 Astra level (September 2026)'].steps;
+  const g4drop = g4[0].price / g4[g4.length-1].price, g5drop = g5[0].price / g5[g5.length-1].price;
+  const yrs = (a,b) => (dt(b) - dt(a)) / (365.25*864e5);
+  const g4yr = Math.pow(g4drop, 1/yrs(g4[0].date, g4[g4.length-1].date));
+  $('#aistats').innerHTML = `
+    <div><strong class="f">${Math.round(g4drop).toLocaleString()}×</strong><span>cheaper for GPT-4-level AI: ${fmtUSD(g4[0].price)} to ${fmtUSD(g4[g4.length-1].price)} per million tokens, March 2023 to August 2025</span></div>
+    <div><strong class="f">${Math.round(g5drop)}×</strong><span>cheaper for GPT-5.5-level AI in under six months: ${fmtUSD(g5[0].price)} at launch in April to ${fmtUSD(g5[g5.length-1].price)} with Claude Haiku 5.5 in October</span></div>
+    <div><strong class="f">${(g6[0].price/g6[g6.length-1].price).toFixed(1)}×</strong><span>cheaper for today's frontier in three weeks: GPT-6 Astra at ${fmtUSD(g6[0].price)}, then Claude Opus 5.5 at ${fmtUSD(g6[g6.length-1].price)} with a slightly higher score</span></div>`;
+  const series = [{name:'GPT-4 level (score 126)', steps:g4, color:'var(--falling)'},{name:'GPT-5.5 level (score 159)', steps:g5, color:'var(--text-primary)'},{name:'GPT-6 Astra level (score 166)', steps:g6, color:'var(--falling-2)'}];
+  $('#ailegend').innerHTML = series.map(s => `<span><i style="background:${s.color}"></i>${s.name}</span>`).join('');
+  const box = $('#aichart'); const W = 1000, H = 380, m = {l:58,r:24,t:14,b:34};
+  const svg = svgEl('svg',{viewBox:`0 0 ${W} ${H}`,role:'img','aria-label':'Cheapest price per million tokens for two fixed capability levels, on a log scale, falling from $37.50 in 2023 to under 4 cents'},box);
+  const x0 = dt('2023-01-01'), x1 = dt('2026-12-31');
+  const X = t => m.l + (t - x0)/(x1 - x0)*(W-m.l-m.r);
+  const ly0 = Math.log10(0.01), ly1 = Math.log10(100);
+  const Y = v => m.t + (ly1 - Math.log10(v))/(ly1-ly0)*(H-m.t-m.b);
+  [0.01,0.1,1,10,100].forEach(v => { svgEl('line',{x1:m.l,x2:W-m.r,y1:Y(v),y2:Y(v),class:'grid'},svg); const t=svgEl('text',{x:m.l-8,y:Y(v)+4,'text-anchor':'end'},svg); t.textContent = v>=1?'$'+v:'$'+v; });
+  [2023,2024,2025,2026].forEach(yr => { const t=svgEl('text',{x:X(dt(yr+'-07-01')),y:H-10,'text-anchor':'middle'},svg); t.textContent=yr; svgEl('line',{x1:X(dt(yr+'-01-01')),x2:X(dt(yr+'-01-01')),y1:H-m.b,y2:H-m.b+5,class:'axis'},svg); });
+  svgEl('line',{x1:m.l,x2:W-m.r,y1:H-m.b,y2:H-m.b,class:'axis'},svg);
+  const now = dt(D.asOf);
+  const pts = [];
+  series.forEach(s => {
+    let d = '';
+    s.steps.forEach((p,i) => { const x = X(dt(p.date)), y = Y(p.price); if (i===0) d += `M${x},${y}`; else d += `H${x}V${y}`; });
+    d += `H${X(now)}`;
+    svgEl('path',{d,fill:'none',stroke:s.color,'stroke-width':2,'stroke-linejoin':'round'},svg);
+    s.steps.forEach((p,i) => { const c = svgEl('circle',{cx:X(dt(p.date)),cy:Y(p.price),r:4.5,fill:s.color,stroke:'var(--ink)','stroke-width':2},svg); pts.push({p,s,cx:X(dt(p.date)),cy:Y(p.price)}); });
+  });
+  const label = (p, txt, dx, dy, anchor='start') => { const t = svgEl('text',{x:X(dt(p.date))+dx,y:Y(p.price)+dy,class:'lbl','text-anchor':anchor},svg); t.textContent = txt; };
+  label(g4[0], 'GPT-4, $37.50', 10, -8);
+  label(g4[g4.length-1], 'gpt-oss-20b, 3.6¢', 10, 18);
+  label(g5[0], 'GPT-5.5, $11.25', -10, -10, 'end'); label(g6[0], 'GPT-6 Astra, $20', -10, -10, 'end');
+  label(g5[g5.length-1], 'Claude Haiku 5.5, 20¢', -10, 20, 'end');
+  const hit = svgEl('rect',{x:m.l,y:m.t,width:W-m.l-m.r,height:H-m.t-m.b,fill:'transparent'},svg);
+  hit.addEventListener('mousemove', e => {
+    const r = svg.getBoundingClientRect(), sx = (e.clientX - r.left)*W/r.width, sy = (e.clientY - r.top)*H/r.height;
+    let best=null, bd=1e9; pts.forEach(q => { const dd = Math.hypot(q.cx-sx, q.cy-sy); if (dd<bd){bd=dd;best=q;} });
+    if (best && bd < 60) showTip(box, `<b>${best.p.model}</b><br><span class="m">${monthName(best.p.date.slice(0,7))} · ${fmtUSD(best.p.price)} per 1M tokens · score ${best.p.eci}</span><br>${best.s.name}`, best.cx*r.width/W, best.cy*r.height/H); else hideTip(box);
+  });
+  hit.addEventListener('mouseleave', () => hideTip(box));
+})();
+
+/* ---------- 2. Capex bars ---------- */
+(function(){
+  const rows = D.capex.filter(r => r[0] >= '2019Q1');
+  const y2019 = rows.filter(r => r[0].startsWith('2019')).reduce((a,r)=>a+r[2],0);
+  const last = rows[rows.length-1], yearAgo = rows[rows.length-5];
+  const first = rows[0];
+  const chipGW = D.chip.filter(c => c[0] <= '2026-06-30').pop();
+  $('#spendstats').innerHTML = `
+    <div><strong class="r">$${last[2].toFixed(1)}B</strong><span>spent in ${last[0].replace('Q',' Q')}, up ${Math.round((last[2]/yearAgo[2]-1)*100)}% in a year and ${Math.round(last[2]/first[2])}× the ${first[0].replace('Q',' Q')} level. All of 2019: $${y2019.toFixed(0)}B</span></div>
+    <div><strong class="r">${(D.dcNow/D.dcThen).toFixed(1)}×</strong><span>US data center construction spending since ChatGPT: $${D.dcThen.toFixed(2)}B to $${D.dcNow.toFixed(2)}B a month, after inflation</span></div>
+    <div><strong class="r">${chipGW[1].toFixed(1)} GW</strong><span>drawn by the AI chips sold worldwide since 2022, before cooling and losses. About 2.6 times PJM's latest 6.8 GW shortfall</span></div>`;
+  const box = $('#capexchart'); const W = 1000, H = 320, m = {l:52,r:10,t:12,b:34};
+  const svg = svgEl('svg',{viewBox:`0 0 ${W} ${H}`,role:'img','aria-label':'Quarterly capital spending of five tech companies, rising from about $20B in 2019 to $181.5B in Q2 2026'},box);
+  const maxV = 200; const Y = v => m.t + (1 - v/maxV)*(H-m.t-m.b);
+  const bw = (W-m.l-m.r)/rows.length;
+  [0,50,100,150,200].forEach(v => { svgEl('line',{x1:m.l,x2:W-m.r,y1:Y(v),y2:Y(v),class:'grid'},svg); const t=svgEl('text',{x:m.l-8,y:Y(v)+4,'text-anchor':'end'},svg); t.textContent='$'+v+'B'; });
+  rows.forEach((r,i) => {
+    const x = m.l + i*bw + 1, h = Y(0)-Y(r[2]);
+    const isNew = r[0] >= '2022Q4';
+    const b = svgEl('rect',{x, y:Y(r[2]), width:Math.max(1,bw-2), height:h, fill: isNew ? 'var(--rising)' : 'var(--text-faint)', rx:2},svg);
+    if (r[0].endsWith('Q1')) { const t = svgEl('text',{x:x+bw*2,y:H-10,'text-anchor':'middle'},svg); t.textContent = r[0].slice(0,4); }
+    const hb = svgEl('rect',{x:m.l+i*bw, y:m.t, width:bw, height:H-m.t-m.b, fill:'transparent'},svg);
+    hb.addEventListener('mousemove', e => { const rr = svg.getBoundingClientRect(); const parts = Object.entries(r[1]).map(([k,v])=>`${k} $${v.toFixed(1)}B`).join('<br>'); showTip(box, `<b>${r[0].replace('Q',' Q')}: $${r[2].toFixed(1)}B</b><br><span class="m">${parts}</span>`, (x+bw)*rr.width/W, Y(r[2])*rr.height/H); });
+    hb.addEventListener('mouseleave', () => hideTip(box));
+  });
+  svgEl('line',{x1:m.l,x2:W-m.r,y1:Y(0),y2:Y(0),class:'axis'},svg);
+  const ix = rows.findIndex(r => r[0]==='2022Q4');
+  const t = svgEl('text',{x:m.l+ix*bw+2,y:Y(70),class:'lbl'},svg); t.textContent = 'ChatGPT, Nov 2022 →';
+})();
+
+
+/* ---------- 3. Scaling path ---------- */
+(function(){
+  const M = D.model, path = M.path, room = M.room;
+  const end = path[path.length-1], rend = room[room.length-1];
+  const capYr = Math.pow(rend[2]/room[0][2], 1/2.5);
+  $('#scaleh').textContent = `If AI keeps its trend, US AI power has to reach about ${Math.round(end[2])}\u00a0GW by the end of 2028. The grid can support about ${Math.round(rend[2])}`;
+  $('#scalestats').innerHTML = `
+    <div><strong>2.6× a year</strong><span>growth in installed AI compute, mid-2025 to mid-2026 (Epoch AI chip sales). Frontier training runs grow 4–5× a year</span></div>
+    <div><strong class="r">${Math.round(end[2])} GW</strong><span>US AI power the trend needs by the end of 2028 (10–90% range ${Math.round(end[1])}–${Math.round(end[3])} GW), up from about ${Math.round(path[0][2])} GW today</span></div>
+    <div><strong>${Math.round(rend[2])} GW</strong><span>what the grid can support by then (${Math.round(rend[1])}–${Math.round(rend[3])} GW). That caps AI power growth near ${capYr.toFixed(1)}× a year, against the trend's 1.9×</span></div>`;
+  $('#scalelegend').innerHTML = `<span><i style="background:var(--text-body)"></i>History (estimated from chips sold)</span><span><i style="background:var(--rising)"></i>Need if the trend holds</span><span><i style="background:var(--falling)"></i>What the grid can support</span><span><i style="background:var(--text-secondary);height:8px;width:8px;border-radius:50%"></i>Epoch-tracked US campuses</span>`;
+  const box = $('#scalechart'); const W=1000,H=400,m={l:56,r:90,t:14,b:34};
+  const svg = svgEl('svg',{viewBox:`0 0 ${W} ${H}`,role:'img','aria-label':'US AI power: history, the trend need rising to about 118 GW by end 2028, and grid supply reaching about 61 GW'},box);
+  const t0 = dt('2023-01-01'), t1 = dt('2029-01-01');
+  const X = t => m.l + (t-t0)/(t1-t0)*(W-m.l-m.r);
+  const ymax = 180; const Y = v => m.t + (1-v/ymax)*(H-m.t-m.b);
+  [0,30,60,90,120,150,180].forEach(v => { svgEl('line',{x1:m.l,x2:W-m.r,y1:Y(v),y2:Y(v),class:'grid'},svg); const tx=svgEl('text',{x:m.l-8,y:Y(v)+4,'text-anchor':'end'},svg); tx.textContent=v+' GW'; });
+  [2023,2024,2025,2026,2027,2028].forEach(yr => { const tx=svgEl('text',{x:X(dt(yr+'-07-01')),y:H-10,'text-anchor':'middle'},svg); tx.textContent=yr; });
+  svgEl('line',{x1:m.l,x2:W-m.r,y1:Y(0),y2:Y(0),class:'axis'},svg);
+  const qd = x => dt('2026-06-30') + x*365.25*864e5;
+  const band = (rows, color) => { const top = rows.map(r=>`${X(qd(r[0]))},${Y(r[3])}`).join(' '); const bot = rows.slice().reverse().map(r=>`${X(qd(r[0]))},${Y(r[1])}`).join(' '); svgEl('polygon',{points:top+' '+bot,fill:color,'fill-opacity':0.16,stroke:'none'},svg); svgEl('polyline',{points:rows.map(r=>`${X(qd(r[0]))},${Y(r[2])}`).join(' '),fill:'none',stroke:color,'stroke-width':2},svg); };
+  band(path,'var(--rising)'); band(room,'var(--falling)');
+  svgEl('polyline',{points:D.hist.map(h=>`${X(dt(h[0]))},${Y(h[1])}`).join(' '),fill:'none',stroke:'var(--text-body)','stroke-width':2},svg);
+  D.camp.forEach(c => svgEl('circle',{cx:X(dt(c[0])),cy:Y(c[1]),r:4,fill:'var(--text-secondary)',stroke:'var(--ink)','stroke-width':1.5},svg));
+  const lab = (x,y,txt,col,anchor='start') => { const tx=svgEl('text',{x,y,class:'lbl','text-anchor':anchor},svg); tx.style.fill=col||'var(--text-body)'; tx.textContent=txt; return tx; };
+  lab(X(qd(2.5))+8, Y(end[2])+4, Math.round(end[2])+' GW need');
+  lab(X(qd(2.5))+8, Y(rend[2])+4, Math.round(rend[2])+' GW supply');
+  lab(X(qd(2.5))+8, Y(D.camp[D.camp.length-1][1])+16, 'campuses', 'var(--text-tertiary)');
+  svgEl('line',{x1:X(dt('2026-06-30')),x2:X(dt('2026-06-30')),y1:m.t,y2:Y(0),stroke:'var(--line-strong)','stroke-dasharray':'3 3'},svg);
+  lab(X(dt('2026-06-30'))-6, m.t+12, '← Measured · Trend →', 'var(--text-tertiary)', 'middle');
+  const pts = [...D.hist.map(h=>({t:dt(h[0]),v:h[1],lbl:'Estimated US AI power'})), ...path.map(r=>({t:qd(r[0]),v:r[2],lo:r[1],hi:r[3],lbl:'Need if the trend holds'})), ...room.map(r=>({t:qd(r[0]),v:r[2],lo:r[1],hi:r[3],lbl:'What the grid can support'})), ...D.camp.map(c=>({t:dt(c[0]),v:c[1],lbl:'Epoch-tracked US campuses'}))];
+  const hit = svgEl('rect',{x:m.l,y:m.t,width:W-m.l-m.r,height:H-m.t-m.b,fill:'transparent'},svg);
+  hit.addEventListener('mousemove', e => { const r=svg.getBoundingClientRect(), sx=(e.clientX-r.left)*W/r.width, sy=(e.clientY-r.top)*H/r.height; let best=null,bd=1e9; pts.forEach(p=>{const d=Math.hypot(X(p.t)-sx,Y(p.v)-sy); if(d<bd){bd=d;best=p;}}); if(best&&bd<50){ const d=new Date(best.t); showTip(box,`<b>${best.lbl}</b><br><span class="m">${MON[d.getUTCMonth()]} ${d.getUTCFullYear()} · ${best.v.toFixed(0)} GW${best.lo!==undefined?` (range ${best.lo.toFixed(0)}–${best.hi.toFixed(0)})`:''}</span>`, X(best.t)*r.width/W, Y(best.v)*r.height/H);} else hideTip(box); });
+  hit.addEventListener('mouseleave',()=>hideTip(box));
+  // need vs room per forward link
+  const R = M.ranges, O = M.odds;
+  const rows = [
+    {name:'Firm power for AI', unit:'GW added, US', need:'need_power', room:'room_power', odds:'power', note:'Gas plants, batteries, solar, wind and restarts already planned, after retirements and other new load'},
+    {name:'Gas turbines', unit:'GW of new gas, US', need:'tb_need', room:'tb_room', odds:'turbines', note:'New gas that AI would need against planned plants and on-site units already ordered. New orders deliver after 2029'},
+    {name:'Copper', unit:'Mt in that year, world', need:'cu_need', room:'cu_room', odds:'copper', note:'Copper for the AI capacity added that year, against the forecast market surplus plus data center use already in forecasts'},
+    {name:'Electricians', unit:'thousand more on data center sites, US', need:'el_need', room:'el_room', odds:'electricians', note:'Extra electricians needed against new workers plus those moving over from other jobs'}];
+  const odd = v => `<span class="${v>=80?'hiodds':''}">${v}%</span>`;
+  const cell = (k,T) => { const yl = `<span class="yl">By end of ${T==='1.5'?2027:2028}</span>`; const n=R[k.need][T], r=R[k.room][T]; const mx=Math.max(n[1],r[1])*1.05; const f=v=>v>=10?Math.round(v):v.toFixed(1); return `${yl}<span class="nr"><span class="r">need ${f(n[1])}</span> vs <span class="f">room ${f(r[1])}</span></span><span class="u" style="display:block">ranges ${f(n[0])}–${f(n[2])} vs ${f(r[0])}–${f(r[2])}</span><div class="nrbar" aria-hidden="true"><span class="need" style="width:${n[1]/mx*100}%"></span><span class="room" style="width:${r[1]/mx*100}%"></span></div>`; };
+  $('#chain').innerHTML = `<div class="crow head"><span>Link</span><span>By end of 2027</span><span>By end of 2028</span><span style="text-align:right">Odds short</span></div>` + rows.map(k => `<div class="crow"><div class="c1"><b>${k.name}</b><span class="u">${k.unit}</span><span class="u" style="display:block;margin-top:4px">${k.note}</span></div><div>${cell(k,'1.5')}</div><div>${cell(k,'2.5')}</div><div class="oddsbig"><span class="op">${odd(O[k.odds]['1.5'])} <small>by 2027</small></span><span class="op">${odd(O[k.odds]['2.5'])} <small>by 2028</small></span></div></div>`).join('');
+  const A = [
+    ['AI compute growth','2.0–3.2× a year','Measured 2.6× for installed compute (Epoch chip sales); frontier training 4–5× (Epoch)'],
+    ['Chip efficiency gain','1.30–1.45× a year','Epoch: about 40% more FLOP per watt each year'],
+    ['Chip power to grid power','1.5–2.0×','Servers, networking and cooling on top of the accelerators. Assumption'],
+    ['US share of AI power','70–85%','86% of the campuses Epoch tracks are in the US'],
+    ['Gas plants finished on time','60–90%','EIA lists 12.3 GW for 2027 and 17.1 GW for 2028, but only 4.9 and 2.9 GW are under construction'],
+    ['Peak value of batteries / solar / wind','40–70% / 5–20% / 10–20%','Share of nameplate that counts at peak. Assumption'],
+    ['Retirements and other new load','6–10 and 5–12 GW a year','Assumption, US'],
+    ['Share of new AI load served by new gas','30–60%','Assumption. GE Vernova is mostly sold out through 2030'],
+    ['Copper per MW of data center','15–40 t','Industry figure 27 t/MW, from one 2009 study; analysts use 20–40'],
+    ['Copper market room','surplus 0.38 Mt in 2027 (ICSG), 0–0.6 Mt in 2028, plus 0.1–0.4 Mt already counted for data centers','ICSG April 2026 forecast; BNEF puts data center copper near 0.4–0.6 Mt a year'],
+    ['Workers per MW at peak','1–5','Chmura says 0.7–2.0; the largest AI campuses have had several thousand on site. Electricians 25–40% of them'],
+    ['Electrician supply','7,600 a year net growth, plus 5,000–20,000 moving from other work','BLS projects 821,000 to 896,900 by 2035'],
+    ['Chip packaging','TSMC CoWoS about 105k wafers a month in mid-2026, 170k end-2027, 260k end-2028; 1.3–1.8× more compute per wafer each year','Analyst estimates (TrendForce, KGI), not TSMC guidance'],
+    ['Memory','HBM bit supply +50–60% in 2027 (TrendForce)','Already sold out']];
+  $('#atab').innerHTML = '<tbody>' + A.map(a=>`<tr><td>${a[0]}</td><td>${a[1]}</td><td>${a[2]}</td></tr>`).join('') + '</tbody>';
+})();
+
+/* ---------- 4. Who gets paid ---------- */
+(function(){
+  const P = D.paid, all = P.groups.flatMap(g => g.rows);
+  const lo = -50, hi = 120, at = v => (Math.min(Math.max(v,lo),hi)-lo)/(hi-lo)*100;
+  const fmt = v => (v>0?'+':v<0?'−':'') + Math.abs(Math.round(v)) + '%';
+  const r = t => all.find(x => x.t === t);
+  $('#paidstats').innerHTML = `
+    <div><strong class="r">${fmt(r('BE').chg)}</strong><span>Bloom Energy in a year. Its fuel cells sit beside a data center and skip the grid queue. It trades at ${Math.round(r('BE').pe)} times earnings</span></div>
+    <div><strong class="r">${fmt(r('GEV').chg)}</strong><span>GE Vernova, whose gas turbines are mostly sold out through 2030. The share of funds holding the turbine makers rose from ${D.links.find(l=>l.key==='turbines').crowd[0]}% to ${D.links.find(l=>l.key==='turbines').crowd[4]}%</span></div>
+    <div><strong class="f">${fmt(r('CEG').chg)}</strong><span>Constellation, the largest US nuclear owner. The share of funds holding power producers stayed at ${D.links.find(l=>l.key==='power').crowd[4]}%</span></div>`;
+  const axis = [-50,-25,0,25,50,75,100].map(v => `<span style="left:${at(v)}%">${v>0?'+':''}${v}%</span>`).join('');
+  $('#paidchart').innerHTML = P.groups.map(g => `<div class="pgroup">${g.name}</div>` + g.rows.map(x => `
+    <div class="prow"><div><b>${x.n}</b> ${tk(x.t)}<span class="u">${x.w}</span></div>
+      <div class="ptrack" aria-hidden="true"><span class="z" style="left:${at(0)}%"></span><span class="spy" style="left:${at(P.spy)}%"></span><span class="bar" style="left:${Math.min(at(0),at(x.chg))}%;width:${Math.abs(at(x.chg)-at(0))}%;background:${x.chg>=0?'var(--rising)':'var(--falling)'}"></span></div>
+      <div class="pval">${fmt(x.chg)}<small>${x.pe ? 'P/E ' + (x.pe>=100 ? Math.round(x.pe) : x.pe.toFixed(1)) : 'net loss'}</small></div></div>`).join('')).join('') +
+    `<div class="prow" style="border:0;padding-top:4px"><div></div><div class="paxis">${axis}</div><div></div></div>`;
+  $('#paidnote').textContent = `Price change from the close on October 14, 2025 to the close on October 14, 2026. The dashed line is the S&P 500 (${fmt(P.spy)}). P/E is the share price over the last four quarters' earnings. A rise like Bloom's means the shortage is already in the price: owning it pays only if the shortage turns out bigger or longer than the market expects. Owning plant owners is a bet that regulators let their prices rise. Not investment advice.`;
+})();
+
+/* ---------- 5. Quadrant ---------- */
+(function(){
+  const L = D.links.filter(l => l.key !== 'builders');
+  const box = $('#quad'); const W = 1000, H = 420, m = {l:56,r:24,t:30,b:44};
+  const svg = svgEl('svg',{viewBox:`0 0 ${W} ${H}`,role:'img','aria-label':'Each link plotted by its price change over the last year and the change in share of funds holding it'},box);
+  const xmin=-10,xmax=45,ymin=-2,ymax=25;
+  const X = v => m.l + (Math.min(Math.max(v,xmin),xmax)-xmin)/(xmax-xmin)*(W-m.l-m.r);
+  const Y = v => m.t + (ymax-v)/(ymax-ymin)*(H-m.t-m.b);
+  // quadrant shading for the zone that matters
+  svgEl('rect',{x:X(8),y:Y(5),width:X(xmax)-X(8),height:Y(ymin)-Y(5),fill:'var(--rising)','fill-opacity':0.08},svg);
+  [-10,0,10,20,30,40].forEach(v => { svgEl('line',{x1:X(v),x2:X(v),y1:m.t,y2:H-m.b,class:'grid'},svg); const t=svgEl('text',{x:X(v),y:H-m.b+18,'text-anchor':'middle'},svg); t.textContent=(v>0?'+':'')+v+'%'; });
+  [0,5,10,15,20,25].forEach(v => { svgEl('line',{x1:m.l,x2:W-m.r,y1:Y(v),y2:Y(v),class:'grid'},svg); const t=svgEl('text',{x:m.l-8,y:Y(v)+4,'text-anchor':'end'},svg); t.textContent=(v>0?'+':'')+v; });
+  svgEl('line',{x1:X(8),x2:X(8),y1:m.t,y2:H-m.b,stroke:'var(--line-strong)','stroke-dasharray':'4 4'},svg);
+  svgEl('line',{x1:m.l,x2:W-m.r,y1:Y(5),y2:Y(5),stroke:'var(--line-strong)','stroke-dasharray':'4 4'},svg);
+  const ax = svgEl('text',{x:W-m.r,y:H-6,'text-anchor':'end'},svg); ax.textContent='Price change, last 12 months →';
+  const ay = svgEl('text',{x:m.l,y:14},svg); ay.textContent='↑ Change in share of funds holding, points';
+  const zl = (txt,x,y,anchor) => { const t=svgEl('text',{x,y,'text-anchor':anchor,class:'lbl'},svg); t.style.fill='var(--text-tertiary)'; t.textContent=txt; };
+  zl('Crowd ahead of prices', X(-9), Y(23.6), 'start');
+  zl('Scarce and crowded', X(44), Y(23.6), 'end');
+  zl('Scarce, crowd not here', X(44), Y(-1.2), 'end');
+  const pos = {chips:[8,-10,'start'],memory:[10,4,'start'],gear:[10,4,'start'],turbines:[10,4,'start'],power:[-10,-10,'end'],nuclear:[0,-12,'middle'],copper:[-10,-10,'end']};
+  const hotNames = [];
+  L.forEach(l => {
+    const xv = l.key==='power' ? 4.4 : l.yoy, yv = l.crowd[4]-l.crowd[0];
+    const cx = X(xv), cy = Y(yv);
+    const hot = xv >= 8 && yv < 5;
+    if (hot) hotNames.push(hotNames.length ? l.name.toLowerCase() : l.name);
+    svgEl('circle',{cx,cy,r:7,fill: hot ? 'var(--rising)' : 'var(--text-body)',stroke:'var(--ink)','stroke-width':2},svg);
+    const [dx,dy,anc] = pos[l.key];
+    const t = svgEl('text',{x:cx+dx,y:cy+dy,class:'lbl','text-anchor':anc},svg); t.textContent = l.name + (l.key==='power' ? ' (price capped)' : '');
+    const hc = svgEl('circle',{cx,cy,r:18,fill:'transparent'},svg);
+    hc.addEventListener('mousemove', e => { const r = svg.getBoundingClientRect(); showTip(box, `<b>${l.name}</b><br><span class="m">${l.key==='power'?'Household electricity +4.4%; capacity price at its cap':'Price '+pct(l.yoy)+' (year before '+pct(l.prior)+')'}<br>Funds holding ${l.crowd[0]}% → ${l.crowd[4]}%</span><br>${l.verdict}`, cx*r.width/W, cy*r.height/H); });
+    hc.addEventListener('mouseleave', () => hideTip(box));
+  });
+  const hl = hotNames.length > 1 ? hotNames.slice(0,-1).join(', ') + ' and ' + hotNames[hotNames.length-1] : hotNames.join('');
+  $('#quadnote').textContent = `The shaded corner is where prices are rising fast but the share of funds owning the link has barely moved. ${hl} sit there. Electricity belongs there too: its wholesale capacity price cannot rise further because it is pinned at a legal cap, so it is plotted at the retail price change. Builders are left off because their series is spending, not a price.`;
+})();
+
+/* ---------- 3b. Map table ---------- */
+(function(){
+  const tb = $('#maptable tbody');
+  const spark = (pts, color) => {
+    if (!pts) return '';
+    const W=120,H=34; const xs = pts.map(p=>dt(p[0])), ys = pts.map(p=>p[1]);
+    const x0=Math.min(...xs),x1=Math.max(...xs),y0=Math.min(...ys,100),y1=Math.max(...ys,100);
+    const X=t=>2+(t-x0)/(x1-x0)*(W-6), Y=v=>H-3-(v-y0)/(y1-y0||1)*(H-8);
+    const d = pts.map((p,i)=>(i?'L':'M')+X(xs[i]).toFixed(1)+','+Y(p[1]).toFixed(1)).join('');
+    const cg = X(dt('2022-11'));
+    return `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" aria-hidden="true" style="display:block;margin-top:6px"><line x1="${cg}" x2="${cg}" y1="0" y2="${H}" stroke="var(--line-strong)" stroke-dasharray="2 2"/><path d="${d}" fill="none" stroke="${color}" stroke-width="1.6"/><circle cx="${X(xs[xs.length-1])}" cy="${Y(ys[ys.length-1])}" r="2.5" fill="${color}"/></svg>`;
+  };
+  const pjmSpark = rows => { const W=120,H=34; const bw=W/rows.length; const mx=400; return `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" aria-hidden="true" style="display:block;margin-top:6px">${rows.map((r,i)=>`<rect x="${i*bw+1}" y="${H-r[1]/mx*(H-2)}" width="${bw-2}" height="${r[1]/mx*(H-2)}" rx="1" fill="${r[1]>200?'var(--rising)':'var(--text-faint)'}"/>`).join('')}</svg>`; };
+  D.links.forEach((l,i) => {
+    const tr = document.createElement('tr'); tr.tabIndex = 0; tr.setAttribute('aria-expanded','false');
+    const dpp = (l.crowd[4]-l.crowd[0]).toFixed(1);
+    const hot = /crowd not here|crowd flat/.test(l.verdict);
+    const priceCell = l.key==='power'
+      ? `<span class="num up">$28.92 → $325<small>2024/25 to 2028/29 auction, at the cap</small></span>`
+      : `<span class="num ${l.yoy>0?'up':'down'}">${pct(l.yoy)}<small>year before ${pct(l.prior)}</small></span>`;
+    tr.innerHTML = `
+      <th scope="row"><span class="lname">${l.name}</span><span class="lsub">${l.scarce}</span>${l.tickers.map(tk).join('')}</th>
+      <td><span class="bstat">${l.binds.status}</span>${l.binds.odds?`<span class="bodds"><span class="${l.binds.odds[0]>=80?'hiodds':''}">${l.binds.odds[0]}%</span> by 2027 · <span class="${l.binds.odds[1]>=80?'hiodds':''}">${l.binds.odds[1]}%</span> by 2028</span>`:''}<span class="bev">${l.binds.ev}</span></td>
+      <td><span style="font-size:12px;color:var(--text-secondary);display:block;margin-bottom:4px">${l.priceLabel}</span>${priceCell}${l.pjm ? pjmSpark(l.pjm) : spark(l.spark, l.yoy>0?'var(--rising)':'var(--falling)')}</td>
+      <td><span class="num">${l.crowd[0]}% → ${l.crowd[4]}%<small>${dpp>0?'+':''}${dpp} points in a year</small></span><span class="crowdbar"><span style="width:${l.crowd[4]}%"></span><em style="left:${l.crowd[0]}%"></em></span></td>
+      <td><span class="pill${hot?' hot':''}">${l.verdict}</span></td>`;
+    const det = document.createElement('tr'); det.className='detail'; det.hidden = true;
+    const stockRows = Object.entries(l.crowdStocks).map(([t,v])=>`<tr><td>${t}</td><td>${v[0]}% → ${v[4]}%</td></tr>`).join('');
+    const pjmRows = l.pjm ? `<table style="margin-top:12px"><tbody>${l.pjm.map(r=>`<tr><td>${r[0]}${r[2]==='m'?' *':''}</td><td>$${r[1].toFixed(2)}/MW-day</td></tr>`).join('')}</tbody></table>${l.pjm.some(r=>r[2]==='m')?'<p style="font-size:11px;color:var(--text-tertiary);margin-top:6px">* from memory, not rechecked</p>':''}` : '';
+    det.innerHTML = `<td colspan="5"><div class="detailbox"><div><p>${l.note}</p>${pjmRows}</div><div><table><tbody><tr><td style="color:var(--text-tertiary)">Share of all 13F filers holding</td><td style="color:var(--text-tertiary)">Jun 2025 → Jun 2026</td></tr>${stockRows}</tbody></table></div></div></td>`;
+    const toggle = () => { const open = det.hidden; det.hidden = !open; tr.setAttribute('aria-expanded', String(open)); };
+    tr.addEventListener('click', toggle); tr.addEventListener('keydown', e => { if (e.key==='Enter'||e.key===' '){ e.preventDefault(); toggle(); } });
+    tb.appendChild(tr); tb.appendChild(det);
+  });
+})();
+
+// on a phone the charts scroll sideways; start the time charts at their newest end
+document.querySelectorAll('.chart:not(#quad)').forEach(c => { c.scrollLeft = c.scrollWidth; });
+
+$('#sources').innerHTML = '<span style="color:var(--text-secondary)">Sources</span>' + SOURCES.map(s => `<span><a href="${s[1]}">${s[0]}</a></span>`).join('') + `<span>13F counts: ${D.filers[0].toLocaleString()} to ${D.filers[4].toLocaleString()} filers a quarter; original 13F-HR filings only, options excluded.</span>`;
+
+})();
+</script>

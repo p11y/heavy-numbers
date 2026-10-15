@@ -7,6 +7,7 @@
 - **Discover** (`/`): the stocks the most concentrated funds opened, their new 3%+ bets, what they sold out entirely, stocks new to 13F filings, and where their stock money sits by sector.
 - **Funds** (`/funds/<name>/`): each filer's latest holdings with what changed since the quarter before, and its last four quarters.
 - **Stocks** (`/stocks/<ticker>/`): who holds each stock and what they did, its last four quarters of 13F holders, and a delayed TradingView price chart. Hovering a stock row anywhere shows its delayed price.
+- **Bottlenecks** (`/bottleneck/`): where AI's physical inputs (power, turbines, copper, chips, memory) run short if the scaling trend holds, who gets paid, and whether funds have noticed. A hand-built page whose dated data lives in `site/bottleneck.html`.
 - **Sectors**, **How this works**, and search over every fund and stock.
 
 ## Build it

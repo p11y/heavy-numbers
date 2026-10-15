@@ -1,5 +1,5 @@
 // The site's HTML: plain template strings over site/site.css, with no framework.
-import { copyFileSync, cpSync, mkdirSync, writeFileSync } from 'node:fs';
+import { copyFileSync, cpSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { quarterLabel, priorQuarter } from './model.mjs';
@@ -268,6 +268,12 @@ export function renderSite({ out, period, prior, partial, priorFilers, funds, st
   for (const [from, to] of [['bets', '/#bets'], ['opened', '/#opened'], ['filings', '/'], ['following', '/'], ['coverage', '/methodology/'], ['developers', '/methodology/'], ['privacy', '/methodology/'], ['activity', '/'], ['record', '/methodology/'], ['bottlenecks', '/']]) {
     write(`${from}/index.html`, `<!doctype html><meta charset="utf-8"><title>Moved</title><link rel="canonical" href="${SITE}${to}"><meta name="robots" content="noindex"><meta http-equiv="refresh" content="0; url=${to}"><a href="${to}">Moved here</a>`);
   }
+  // The AI bottleneck map: a hand-built page with its own dated data (site/bottleneck.html). Its ticker chips
+  // link to the stock pages this build made.
+  const slugs = new Set(stocks.map(s => s.slug));
+  const bottleneck = readFileSync(path.join(root, '..', 'site', 'bottleneck.html'), 'utf8')
+    .replace(/\/\*STOCKS:(\[.*?\])\*\/null/, (_, list) => JSON.stringify(JSON.parse(list).filter(t => slugs.has(t.toLowerCase()))));
+  write('bottleneck/index.html', layout({ title: 'AI bottleneck map', path: '/bottleneck/', current: '/bottleneck/', description: 'AI is getting cheaper while the power, chips and copper it runs on get scarcer: where the scaling trend runs short, who gets paid, and whether funds have noticed.', body: bottleneck }));
   write('404.html', layout({ title: 'Not found', path: '/404.html', current: '', description: 'Page not found.', body: `${head('404', 'Not found', '', 'Search for a fund or stock above, or go to <a class="hf-inline-link" href="/">Discover</a>.')}` }));
 
   // Search, sitemap, assets
@@ -276,7 +282,7 @@ export function renderSite({ out, period, prior, partial, priorFilers, funds, st
     ...stocks.map(s => [s.security.label, `${BASE}/stocks/${s.slug}/`, 's', s.security.ticker, Math.round(s.value / 1e6)]),
   ];
   write('search.json', JSON.stringify(index));
-  const urls = ['/', '/funds/', '/stocks/', '/sectors/', '/rankings/', '/methodology/', ...sectorRows.map(s => `/sectors/${s.key}/`), ...funds.map(fundHref), ...stocks.map(s => `/stocks/${s.slug}/`)];
+  const urls = ['/', '/funds/', '/stocks/', '/sectors/', '/rankings/', '/bottleneck/', '/methodology/', ...sectorRows.map(s => `/sectors/${s.key}/`), ...funds.map(fundHref), ...stocks.map(s => `/stocks/${s.slug}/`)];
   write('sitemap.xml', `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.map(u => `<url><loc>${SITE}${u}</loc></url>`).join('\n')}\n</urlset>\n`);
   write('robots.txt', `User-agent: *\nAllow: /\nSitemap: ${SITE}/sitemap.xml\n`);
   mkdirSync(path.join(out, 'assets'), { recursive: true });
@@ -346,7 +352,7 @@ function table(columns, rows, show = 0) {
   return clip ? `<div class="hn-clip">${html}<button type="button" class="hn-more">Show ${int(rows.length - show)} more</button></div>` : html;
 }
 
-const NAV = [['/', 'Discover'], ['/funds/', 'Funds'], ['/stocks/', 'Stocks'], ['/sectors/', 'Sectors'], ['/rankings/', 'Rankings'], ['/methodology/', 'How this works']];
+const NAV = [['/', 'Discover'], ['/funds/', 'Funds'], ['/stocks/', 'Stocks'], ['/sectors/', 'Sectors'], ['/rankings/', 'Rankings'], ['/bottleneck/', 'Bottlenecks'], ['/methodology/', 'How this works']];
 function layout({ title, description, path: pagePath, current, body }) {
   const nav = NAV.map(([href, label]) => `<a href="${href}"${href === current ? ' aria-current="page"' : ''}>${label}</a>`).join('');
   const full = `${title} · Heavy Numbers`;
