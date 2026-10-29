@@ -162,31 +162,34 @@ export function buildBooks(quarterReports, rows) {
   return { books, price };
 }
 
-/**
- * Issuer codes that replaced another issuer's when a company reorganized under a new CUSIP prefix: new → old.
- * ExxonMobil Holdings Corp (30233Q) shares replaced Exxon Mobil Corp's (30231G).
- */
-const REISSUED_ISSUERS = { '30233Q': '30231G' };
+const SUFFIX = /\s+(INC|CORP|CORPORATION|CO|COMPANY|LTD|PLC|HOLDINGS?|GROUP|NEW|DEL)$/;
+/** An issuer name to compare across CUSIPs: 'EXXONMOBIL HOLDINGS CORP' and 'EXXON MOBIL CORP' → 'EXXONMOBIL'. */
+const nameKey = name => {
+  let key = String(name).toUpperCase().replace(/[^A-Z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim();
+  while (SUFFIX.test(key)) key = key.replace(SUFFIX, '');
+  return key.replace(/ /g, '');
+};
 /**
  * Pairs a filer's positions now with its positions a quarter before: idx now → idx before. Same CUSIP first;
- * then, when one position on each side is left with the same issuer code (the CUSIP's first six characters,
- * read through REISSUED_ISSUERS), those two, since a reissued CUSIP (a reverse split, a reorganization) is the
- * same holding.
+ * then, when one position on each side is left with the same issuer code (the CUSIP's first six characters),
+ * those two, since a reissued CUSIP (a reverse split, a reorganization) is the same holding; then the same
+ * for the issuer's name, for a reorganization under a new issuer code (Exxon's new holding company, ONEOK).
  */
 export function pairPositions(book, prev, securities) {
   const pairs = new Map();
   if (!prev) return pairs;
   for (const i of book.positions.keys()) if (prev.positions.has(i)) pairs.set(i, i);
-  const issuer = i => { const code = securities[i].cusip.slice(0, 6); return REISSUED_ISSUERS[code] ?? code; };
-  const left = (positions, taken) => {
-    const byIssuer = new Map();
-    for (const i of positions.keys()) if (!taken.has(i)) byIssuer.set(issuer(i), [...(byIssuer.get(issuer(i)) ?? []), i]);
-    return byIssuer;
+  const left = (positions, taken, keyOf) => {
+    const byKey = new Map();
+    for (const i of positions.keys()) if (!taken.has(i)) byKey.set(keyOf(i), [...(byKey.get(keyOf(i)) ?? []), i]);
+    return byKey;
   };
-  const nowLeft = left(book.positions, pairs), beforeLeft = left(prev.positions, new Set(pairs.values()));
-  for (const [code, list] of nowLeft) {
-    const other = beforeLeft.get(code);
-    if (list.length === 1 && other?.length === 1) pairs.set(list[0], other[0]);
+  for (const keyOf of [i => securities[i].cusip.slice(0, 6), i => nameKey(securities[i].name)]) {
+    const nowLeft = left(book.positions, pairs, keyOf), beforeLeft = left(prev.positions, new Set(pairs.values()), keyOf);
+    for (const [key, list] of nowLeft) {
+      const other = beforeLeft.get(key);
+      if (key && list.length === 1 && other?.length === 1) pairs.set(list[0], other[0]);
+    }
   }
   return pairs;
 }
