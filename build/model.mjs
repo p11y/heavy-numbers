@@ -163,15 +163,21 @@ export function buildBooks(quarterReports, rows) {
 }
 
 /**
+ * Issuer codes that replaced another issuer's when a company reorganized under a new CUSIP prefix: new → old.
+ * ExxonMobil Holdings Corp (30233Q) shares replaced Exxon Mobil Corp's (30231G).
+ */
+const REISSUED_ISSUERS = { '30233Q': '30231G' };
+/**
  * Pairs a filer's positions now with its positions a quarter before: idx now → idx before. Same CUSIP first;
- * then, when one position on each side is left with the same issuer code (the CUSIP's first six characters),
- * those two, since a reissued CUSIP (a reverse split, a reorganization) is the same holding.
+ * then, when one position on each side is left with the same issuer code (the CUSIP's first six characters,
+ * read through REISSUED_ISSUERS), those two, since a reissued CUSIP (a reverse split, a reorganization) is the
+ * same holding.
  */
 export function pairPositions(book, prev, securities) {
   const pairs = new Map();
   if (!prev) return pairs;
   for (const i of book.positions.keys()) if (prev.positions.has(i)) pairs.set(i, i);
-  const issuer = i => securities[i].cusip.slice(0, 6);
+  const issuer = i => { const code = securities[i].cusip.slice(0, 6); return REISSUED_ISSUERS[code] ?? code; };
   const left = (positions, taken) => {
     const byIssuer = new Map();
     for (const i of positions.keys()) if (!taken.has(i)) byIssuer.set(issuer(i), [...(byIssuer.get(issuer(i)) ?? []), i]);
